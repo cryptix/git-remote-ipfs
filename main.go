@@ -47,8 +47,6 @@ func main() {
 	log.SetOutput(os.Stderr)
 	log.SetPrefix("git-remote-ipfs:")
 
-	//log.Println("Hello", os.Environ())
-
 	thisGitRepo := os.Getenv("GIT_DIR")
 	if thisGitRepo == "" {
 		log.Fatal("could not get GIT_DIR env var")
@@ -215,12 +213,36 @@ func fetchObject(sha1 string) error {
 		return errgo.Notef(err, "fetchObject: sha1<%s> open() failed", sha1)
 	}
 
-	// TODO: unpack/move into GIT_DIR
+	if thisGitRepo == "" {
+		log.Fatal("GIT_DIR is unset. how can this be?")
+	}
+
+	// TODO: didnt find a git command to impot loose blob objects
+
+	fanOutDir := filepath.Join(thisGitRepo, "objects", sha1[:2])
+	log.Printf("DEBUG: fan-out dir:%q gitDir: %q", fanOutDir, thisGitRepo)
+	if err := os.MkdirAll(fanOutDir, 0700); err != nil { // TODO: not sure about the mode here
+		return errgo.Notef(err, "fetchObject: sha1<%s> could not create fan-out dir", sha1)
+	}
+
+	newPackF, err := os.Create(filepath.Join(fanOutDir, sha1[2:]))
+	if err != nil {
+		return errgo.Notef(err, "fetchObject: sha1<%s> os.Create(newPackF) failed", sha1)
+	}
+
+	if _, err := io.Copy(newPackF, packF); err != nil {
+		return errgo.Notef(err, "fetchObject: sha1<%s> io.Copy(new, old) failed", sha1)
+	}
 
 	if err := packF.Close(); err != nil {
-		return err
+		return errgo.Notef(err, "fetchObject: sha1<%s> close(packF) failed", sha1)
 	}
-	return errgo.New("fetchObject: found but more TODO")
+
+	if err := newPackF.Close(); err != nil {
+		return errgo.Notef(err, "fetchObject: sha1<%s> close(newPackF) failed", sha1)
+	}
+
+	return nil
 }
 
 // "fetch $sha1 $ref" method 2

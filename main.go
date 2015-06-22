@@ -3,6 +3,9 @@
 // ie: git clone ipfs://$some/path/to/.git
 //
 // see https://git-scm.com/docs/gitremote-helpers for more
+//
+// progress: https://github.com/cryptix/git-remote-ipfs/issues/1
+
 package main
 
 import (
@@ -42,7 +45,7 @@ func main() {
 
 	//log.Println("Hello", os.Environ())
 
-	var u string
+	var u string // repo url
 	v := len(os.Args[1:])
 	switch v {
 	case 2:
@@ -51,16 +54,17 @@ func main() {
 		u = os.Args[2]
 
 	default:
-		log.Fatalf("usage: unkonw # of args: %d", v)
+		log.Fatalf("usage: unknown # of args: %d\n%v", v, os.Args[1:])
 	}
 
+	// since we get a proper URL, we can parse it make sure its valid
 	repoUrl, err := url.Parse(u)
 	if err != nil {
 		log.Fatalf("url.Parse() failed: %s", err)
 	}
 	log.Printf("dbg: repo url %#v", repoUrl)
 
-	if repoUrl.Scheme != "ipfs" {
+	if repoUrl.Scheme != "ipfs" { // ipns will have a seperate helper
 		log.Fatal("only ipfs schema is supported")
 	}
 
@@ -86,7 +90,7 @@ func main() {
 
 	go speakGit(os.Stdin)
 
-	select {}
+	select {} // block indefinetly - until stdin closes most likly
 }
 
 func fetchRepo(root string) string {
@@ -100,7 +104,7 @@ func fetchRepo(root string) string {
 			if err := shell.Get(root, tmpPath); err != nil {
 				log.Fatalf("shell.Get(%s, %s) failed: %s", root, tmpPath, err)
 			}
-			log.Println("shell got:", root)
+			log.Println("DEBUG: shell got:", root)
 			return tmpPath
 		}
 		log.Fatalf("stat err: %s", err)
@@ -116,19 +120,21 @@ func fetchRepo(root string) string {
 func speakGit(r io.Reader) {
 	r = debug.NewReadLogger("from git:", r)
 	w := debug.NewWriteLogger("to git:", os.Stdout)
+
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		text := scanner.Text()
 		switch {
+
 		case text == "capabilities":
-			log.Println("caps line")
+			log.Println("DEBUG: got caps line")
 			fmt.Fprintf(w, "fetch\n\n")
 
 		case text == "list":
-			log.Println("list line")
+			log.Println("DEBUG: got list line")
 
 			var b bytes.Buffer
-			log.Println("tmp repo:", tmpBareRepo)
+			log.Println("DEBUG: tmp repo:", tmpBareRepo)
 			cmd := exec.Command("git", "ls-remote", tmpBareRepo)
 			cmd.Stdout = &b
 			cmd.Stderr = &b
@@ -137,7 +143,7 @@ func speakGit(r io.Reader) {
 				log.Fatalf("git ls-remote wait error: %s", err)
 			}
 
-			log.Println("ran git ls-remote")
+			log.Println("DEBUG: ran git ls-remote")
 			tabToSpace := strings.NewReplacer("\t", " ")
 			_, err := tabToSpace.WriteString(w, b.String())
 			if err != nil {
@@ -147,10 +153,10 @@ func speakGit(r io.Reader) {
 
 		case strings.HasPrefix(text, "fetch "):
 			fetchSplit := strings.Split(text, " ")
-			log.Printf("fetch sha1<%s> name<%s>", fetchSplit[1], fetchSplit[2])
+			log.Printf("DEBUG: fetch sha1<%s> name<%s>", fetchSplit[1], fetchSplit[2])
 
 		default:
-			log.Println("default git speak:", text)
+			log.Println("DEBUG: default git speak:", text)
 			os.Exit(1)
 		}
 	}
@@ -158,45 +164,4 @@ func speakGit(r io.Reader) {
 	if err := scanner.Err(); err != nil {
 		log.Fatalf("stdin scanner error: %s", err)
 	}
-}
-
-// shamefully taken from https://gist.github.com/tyndyll/89fbb2c2273f83a074dc
-func Execute(output_buffer *bytes.Buffer, stack ...*exec.Cmd) (err error) {
-	var error_buffer bytes.Buffer
-	pipe_stack := make([]*io.PipeWriter, len(stack)-1)
-	i := 0
-	for ; i < len(stack)-1; i++ {
-		stdin_pipe, stdout_pipe := io.Pipe()
-		stack[i].Stdout = stdout_pipe
-		stack[i].Stderr = &error_buffer
-		stack[i+1].Stdin = stdin_pipe
-		pipe_stack[i] = stdout_pipe
-	}
-	stack[i].Stdout = output_buffer
-	stack[i].Stderr = &error_buffer
-
-	if err := call(stack, pipe_stack); err != nil {
-		log.Fatalln(string(error_buffer.Bytes()), err)
-	}
-	return err
-}
-
-func call(stack []*exec.Cmd, pipes []*io.PipeWriter) (err error) {
-	if stack[0].Process == nil {
-		if err = stack[0].Start(); err != nil {
-			return err
-		}
-	}
-	if len(stack) > 1 {
-		if err = stack[1].Start(); err != nil {
-			return err
-		}
-		defer func() {
-			if err == nil {
-				pipes[0].Close()
-				err = call(stack[1:], pipes[1:])
-			}
-		}()
-	}
-	return stack[0].Wait()
 }

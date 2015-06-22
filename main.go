@@ -36,14 +36,22 @@ func usage() {
 	os.Exit(2)
 }
 
-var tmpBareRepo string
+var (
+	tmpBareRepo string
+)
 
 func main() {
 	log.SetFlags(0)
 	log.SetOutput(os.Stderr)
-	log.SetPrefix("git-remote-ipfs: ")
+	log.SetPrefix("git-remote-ipfs:")
 
 	//log.Println("Hello", os.Environ())
+
+	thisGitRepo := os.Getenv("GIT_DIR")
+	if thisGitRepo == "" {
+		log.Fatal("could not get GIT_DIR env var")
+	}
+	log.Println("GIT_DIR=", thisGitRepo)
 
 	var u string // repo url
 	v := len(os.Args[1:])
@@ -84,16 +92,16 @@ func main() {
 		log.Fatal("invalid output of root-hash-pipe, expected: %s got: %s", expAdded, hash)
 	}
 	hash = hash[len(expAdded):]
-	log.Println("root hash: ", hash)
+	log.Println("DEBUG: root hash: ", hash)
 
-	tmpBareRepo = fetchRepo(hash)
+	tmpBareRepo = fetchFullBareRepo(hash)
 
 	go speakGit(os.Stdin)
 
 	select {} // block indefinetly - until stdin closes most likly
 }
 
-func fetchRepo(root string) string {
+func fetchFullBareRepo(root string) string {
 	// TODO: document host format
 	shell := shell.NewShell("localhost:5001")
 
@@ -118,8 +126,8 @@ func fetchRepo(root string) string {
 // speakGit acts like a git-remote-helper
 // see this for more: https://www.kernel.org/pub/software/scm/git/docs/gitremote-helpers.html
 func speakGit(r io.Reader) {
-	r = debug.NewReadLogger("from git:", r)
-	w := debug.NewWriteLogger("to git:", os.Stdout)
+	r = debug.NewReadLogger("git>>", r)
+	w := debug.NewWriteLogger("git<<", os.Stdout)
 
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
@@ -140,23 +148,27 @@ func speakGit(r io.Reader) {
 			cmd.Stderr = &b
 
 			if err := cmd.Run(); err != nil {
-				log.Fatalf("git ls-remote wait error: %s", err)
+				log.Fatalf("git ls-remote Run error: %s", err)
 			}
 
 			log.Println("DEBUG: ran git ls-remote")
+			// convert tabs to spaces
 			tabToSpace := strings.NewReplacer("\t", " ")
 			_, err := tabToSpace.WriteString(w, b.String())
 			if err != nil {
-				log.Fatalf("git ls-remote tabWriter error: %s", err)
+				log.Fatalf("git ls-remote tab conversion error: %s", err)
 			}
 			fmt.Fprintln(w, "")
 
 		case strings.HasPrefix(text, "fetch "):
 			fetchSplit := strings.Split(text, " ")
+			if len(fetchSplit) < 2 {
+				log.Printf("malformed 'fetch' command. %q", text)
+			}
 			log.Printf("DEBUG: fetch sha1<%s> name<%s>", fetchSplit[1], fetchSplit[2])
 
 		default:
-			log.Println("DEBUG: default git speak:", text)
+			log.Printf("DEBUG: default git speak: %q\n", text)
 			os.Exit(1)
 		}
 	}

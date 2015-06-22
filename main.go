@@ -22,6 +22,7 @@ import (
 
 	"github.com/cryptix/go/debug"
 	"github.com/whyrusleeping/ipfs-shell"
+	"gopkg.in/errgo.v1"
 )
 
 const usageMsg = `usage git-remote-ipfs <repository> [<URL>]
@@ -38,6 +39,7 @@ func usage() {
 
 var (
 	tmpBareRepo string
+	thisGitRepo string
 )
 
 func main() {
@@ -166,14 +168,129 @@ func speakGit(r io.Reader) {
 				log.Printf("malformed 'fetch' command. %q", text)
 			}
 			log.Printf("DEBUG: fetch sha1<%s> name<%s>", fetchSplit[1], fetchSplit[2])
+			err := fetchObject(fetchSplit[1])
+			if err == nil {
+				log.Println("fetchObject() worked")
+				//fmt.Fprintln(w, "")
+				continue
+			}
+			log.Println("method1 failed:", err)
+
+			err = fetchPackedObject(fetchSplit[1])
+			if err == nil {
+				log.Println("fetchPackedObject() worked")
+				continue
+			}
+			log.Println("method2 failed:", err)
+			os.Exit(1)
+
+		case text == "":
+			log.Println("DEBUG: got empty line (end of fetch batch?)")
+			fmt.Fprintln(w, "")
 
 		default:
 			log.Printf("DEBUG: default git speak: %q\n", text)
-			os.Exit(1)
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
 		log.Fatalf("stdin scanner error: %s", err)
 	}
+
+	log.Println("speakGit: exited read loop")
+	os.Exit(0)
+}
+
+// "fetch $sha1 $ref" method 1
+//   - look for it in ".git/objects/substr($sha1, 0, 2)/substr($sha, 2)"
+//   - if found, download it and put it in place. (there may be a command for this)
+//   - done \o/
+func fetchObject(sha1 string) error {
+	p := filepath.Join(tmpBareRepo, "objects", sha1[:2], sha1[2:])
+	packF, err := os.Open(p)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return err
+		}
+		return errgo.Notef(err, "fetchObject: sha1<%s> open() failed", sha1)
+	}
+
+	// TODO: unpack/move into GIT_DIR
+
+	if err := packF.Close(); err != nil {
+		return err
+	}
+	return errgo.New("fetchObject: found but more TODO")
+}
+
+// "fetch $sha1 $ref" method 2
+//   - look for it in packfiles by fetching ".git/objects/pack/*.idx"
+//     and looking at each idx with cat <idx> | git show-index  (alternatively can learn to read the format in go)
+//   - if found in an <idx>, download the relevant .pack file,
+//     and feed it into `git index-pack --stdin --fix-thin` which will put it into place.
+//   - done \o/
+func fetchPackedObject(sha1 string) error {
+	// search for all index files
+	p := filepath.Join(tmpBareRepo, "objects", "pack", "*.idx")
+	indexes, err := filepath.Glob(p)
+	if err != nil {
+		return errgo.Notef(err, "fetchPackedObject: glob(%q) failed", p)
+	}
+
+	if len(indexes) == 0 {
+		return errgo.New("fetchPackedObject: no idx files found")
+	}
+
+	for _, idx := range indexes {
+		idxF, err := os.Open(idx)
+		if err != nil {
+			return errgo.Notef(err, "fetchPackedObject: idx<%s> open() failed", sha1)
+		}
+		defer idxF.Close()
+
+		// using external git show-index < idxF for now
+		// TODO: parse index file in go to make this portable
+		var b bytes.Buffer
+		showIdx := exec.Command("git", "show-index")
+		showIdx.Stdin = idxF
+		showIdx.Stdout = &b
+
+		if err := showIdx.Run(); err != nil {
+			return errgo.Notef(err, "fetchPackedObject: idx<%s> show-index start failed", sha1)
+		}
+
+		if !strings.Contains(b.String(), sha1) {
+			// sha1 not in index, next idx file
+			continue
+		}
+
+		if err := idxF.Close(); err != nil {
+			return errgo.Notef(err, "fetchPackedObject: idx<%s> idxF.close() failed", sha1)
+		}
+
+		// we found an index with our hash inside
+		pack := strings.Replace(idx, ".idx", ".pack", 1)
+		packF, err := os.Open(pack)
+		if err != nil {
+			return errgo.Notef(err, "fetchPackedObject: pack<%s> open() failed", sha1)
+		}
+
+		b.Reset()
+		unpackIdx := exec.Command("git", "unpack-objects")
+		unpackIdx.Dir = thisGitRepo // GIT_DIR
+		unpackIdx.Stdin = packF
+		unpackIdx.Stdout = &b
+
+		if err := unpackIdx.Run(); err != nil {
+			return errgo.Notef(err, "fetchPackedObject: pack<%s> 'git unpack-objects' failed\nOutput: %s", sha1, b.String())
+		}
+
+		if err := packF.Close(); err != nil {
+			return errgo.Notef(err, "fetchPackedObject: pack<%s> packF.close() failed", sha1)
+		}
+		// found and unpacked - done
+		return nil
+	}
+
+	return errgo.Newf("did not find sha1<%s> in %d index files", sha1, len(indexes))
 }

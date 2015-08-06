@@ -2,6 +2,10 @@
 # the Docker Hub: https://registry.hub.docker.com/u/library/golang/
 box: golang
 
+
+services:
+  - jbenet/go-ipfs
+
 build:
   steps:
     - setup-go-workspace

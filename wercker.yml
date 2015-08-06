@@ -1,0 +1,24 @@
+# This references the default golang container from
+# the Docker Hub: https://registry.hub.docker.com/u/library/golang/
+box: golang
+
+build:
+  steps:
+    - setup-go-workspace
+
+    - script:
+        name: go get
+        code: |
+          go get -v github.com/cryptix/git-remote-ipfs
+          go get -v github.com/ipfs/go-ipfs/cmd/ipfs
+          go get -v
+
+    - script:
+        name: go build
+        code: |
+          go build ./...
+
+    - script:
+        name: go test
+        code: |
+          go test ./...

@@ -9,6 +9,8 @@ build:
     - script:
         name: go get
         code: |
+          go get -v github.com/kylelemons/godebug/diff
+          go get -v github.com/jbenet/go-random
           go get -v github.com/cryptix/git-remote-ipfs
           go get -v github.com/ipfs/go-ipfs/cmd/ipfs
           go get -v

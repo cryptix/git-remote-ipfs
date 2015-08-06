@@ -17,11 +17,9 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/cryptix/go/debug"
-	"github.com/whyrusleeping/ipfs-shell"
 )
 
 const usageMsg = `usage git-remote-ipfs <repository> [<URL>]
@@ -36,9 +34,19 @@ func usage() {
 	os.Exit(2)
 }
 
+type mode uint
+
+const (
+	_ mode = iota
+	fetch
+	push
+)
+
 var (
 	tmpBareRepo string
 	thisGitRepo string
+
+	curr mode
 )
 
 func main() {
@@ -71,55 +79,40 @@ func main() {
 	}
 	log.Printf("dbg: repo url %#v", repoUrl)
 
-	if repoUrl.Scheme != "ipfs" { // ipns will have a seperate helper
+	if repoUrl.Scheme != "ipfs" { // ipns will have a seperate helper(?)
 		log.Fatal("only ipfs schema is supported")
 	}
 
-	// get root hash of the passed repo path
-	path := fmt.Sprintf("/ipfs/%s/%s", repoUrl.Host, repoUrl.Path)
-	var b bytes.Buffer
-	if err := Execute(&b,
-		exec.Command("ipfs", "object", "get", path),
-		exec.Command("ipfs", "object", "put", "--inputenc=json"),
-	); err != nil {
-		log.Fatalln("root hash pipe failed", err)
-	}
+	if u == "ipfs://new" {
+		// assuming new push
+		curr = push
 
-	hash := b.String()
-	const expAdded = "added "
-	if !strings.HasPrefix(hash, expAdded) {
-		log.Fatal("invalid output of root-hash-pipe, expected: %s got: %s", expAdded, hash)
-	}
-	hash = hash[len(expAdded):]
-	log.Println("DEBUG: root hash: ", hash)
+	} else {
+		curr = fetch
+		// get root hash of the passed repo path
+		path := fmt.Sprintf("/ipfs/%s/%s", repoUrl.Host, repoUrl.Path)
+		var b bytes.Buffer
+		if err := Execute(&b,
+			exec.Command("ipfs", "object", "get", path),
+			exec.Command("ipfs", "object", "put", "--inputenc=json"),
+		); err != nil {
+			log.Fatalln("root hash pipe failed", err)
+		}
 
-	tmpBareRepo = fetchFullBareRepo(hash)
+		hash := b.String()
+		const expAdded = "added "
+		if !strings.HasPrefix(hash, expAdded) {
+			log.Fatal("invalid output of root-hash-pipe, expected: %s got: %s", expAdded, hash)
+		}
+		hash = hash[len(expAdded):]
+		log.Println("DEBUG: root hash: ", hash)
+
+		tmpBareRepo = fetchFullBareRepo(hash)
+	}
 
 	go speakGit(os.Stdin)
 
 	select {} // block indefinetly - until stdin closes most likly
-}
-
-func fetchFullBareRepo(root string) string {
-	// TODO: document host format
-	shell := shell.NewShell("localhost:5001")
-
-	tmpPath := filepath.Join("/", os.TempDir(), root)
-	s, err := os.Stat(tmpPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			if err := shell.Get(root, tmpPath); err != nil {
-				log.Fatalf("shell.Get(%s, %s) failed: %s", root, tmpPath, err)
-			}
-			log.Println("DEBUG: shell got:", root)
-			return tmpPath
-		}
-		log.Fatalf("stat err: %s", err)
-	}
-	if !s.IsDir() {
-		log.Fatalf("please delete %s")
-	}
-	return tmpPath
 }
 
 // speakGit acts like a git-remote-helper
@@ -135,7 +128,9 @@ func speakGit(r io.Reader) {
 
 		case text == "capabilities":
 			log.Println("DEBUG: got caps line")
-			fmt.Fprintf(w, "fetch\n\n")
+			if curr == fetch {
+				fmt.Fprintf(w, "fetch\n\n")
+			}
 
 		case text == "list":
 			log.Println("DEBUG: got list line")

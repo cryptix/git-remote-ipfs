@@ -1,6 +1,6 @@
 # git-remote-ipfs
 
-[![wercker status](https://app.wercker.com/status/494a8ac6b836f39cc7e67036d957a43e/m "wercker status")](https://app.wercker.com/project/bykey/494a8ac6b836f39cc7e67036d957a43e)
+[![wercker status](https://app.wercker.com/status/3749e6687bf42f3cfe6114fd8d3419c1/m "wercker status")](https://app.wercker.com/project/bykey/3749e6687bf42f3cfe6114fd8d3419c1)
 
 a 'native' git protocol helper to push and pull git repos from ipfs.
 

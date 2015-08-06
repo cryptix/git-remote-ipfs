@@ -19,6 +19,8 @@ import (
 var (
 	ipfsPath string
 	gitPath  string
+
+	ipfsDaemon *exec.Cmd
 )
 
 func init() {
@@ -51,6 +53,18 @@ func checkInstalled(t *testing.T) {
 			t.Fatal("ipfs init failed")
 		}
 		t.Log("wercker: ipfs init done")
+
+		ipfsDaemon = exec.Command(ipfsPath, "daemon")
+		ipfsDaemon.Stderr = os.Stderr
+		ipfsDaemon.Stdout = os.Stderr
+
+		if err := ipfsDaemon.Start(); err != nil {
+			t.Fatal("ipfs daemon start")
+		}
+
+		// todo() block until ready..
+		time.Sleep(20 * time.Second)
+
 	}
 }
 

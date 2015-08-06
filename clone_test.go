@@ -40,6 +40,13 @@ func checkInstalled(t *testing.T) {
 	if err != nil {
 		t.Fatal("git-remote-ipfs is not installed")
 	}
+
+	// check for daemon... maybe need to init ipfs
+	if os.Getenv("WERCKER_STEP_NAME") != "" {
+		if err := exec.Command(ipfsPath, "init").Run(); err != nil {
+			t.Fatal("ipfs init failed")
+		}
+	}
 }
 
 func TestClone(t *testing.T) {

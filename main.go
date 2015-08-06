@@ -204,6 +204,7 @@ func speakGit(r io.Reader) {
 //   - if found, download it and put it in place. (there may be a command for this)
 //   - done \o/
 func fetchObject(sha1 string) error {
+	return errgo.Newf("TODO: unsupported - please see issue #1")
 	p := filepath.Join(tmpBareRepo, "objects", sha1[:2], sha1[2:])
 	packF, err := os.Open(p)
 	if err != nil {

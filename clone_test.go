@@ -43,9 +43,14 @@ func checkInstalled(t *testing.T) {
 
 	// check for daemon... maybe need to init ipfs
 	if os.Getenv("WERCKER_STEP_NAME") != "" {
+		if err := os.Setenv("IPFS_PATH", "/tmp/ipfs"); err != nil {
+			t.Fatal("setEnv(IPFS_PATH) failed")
+		}
+		t.Log("wercker: IPFS_PATH set")
 		if err := exec.Command(ipfsPath, "init").Run(); err != nil {
 			t.Fatal("ipfs init failed")
 		}
+		t.Log("wercker: ipfs init done")
 	}
 }
 

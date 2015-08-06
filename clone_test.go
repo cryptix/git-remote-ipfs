@@ -59,8 +59,12 @@ func TestClone(t *testing.T) {
 	t.Logf("dbg: created %s", tmpDir)
 
 	// pinned by pinbot, prepared with 'git-ipfs-rehost https://github.com/cryptix/git-remote-ipfs-testcase'
-	err := exec.Command(gitPath, "clone", "ipfs://QmS5Vauz2G6DVP7NEetJBcHDUNPTRt34D6evNiwrp7Gmsk/git-remote-ipfs-testcase", tmpDir).Run()
-	if err != nil { // exit status 0?
+	buf.Reset()
+	cloneCmd := exec.Command(gitPath, "clone", "ipfs://QmS5Vauz2G6DVP7NEetJBcHDUNPTRt34D6evNiwrp7Gmsk/git-remote-ipfs-testcase", tmpDir)
+	cloneCmd.Stdout = &buf
+	cloneCmd.Stderr = &buf
+	if err := cloneCmd.Run(); err != nil { // exit status 0?
+		t.Log(buf.String())
 		t.Fatalf("git clone ipfs:// failed: %s", err)
 	}
 

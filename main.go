@@ -1,11 +1,31 @@
-// git-remote-helper implements a git-remote helper that uses the ipfs transport
-//
-// ie: git clone ipfs://$some/path/to/.git
-//
-// see https://git-scm.com/docs/gitremote-helpers for more
-//
-// progress: https://github.com/cryptix/git-remote-ipfs/issues/1
+/*
+git-remote-helper implements a git-remote helper that uses the ipfs transport.
 
+TODO
+
+Currently assumes a IPFS Daemon at localhost:5001
+
+Not completed: Push, IPNS, URLs like ipfs::path/.., embedded IPFS node
+
+
+Example
+
+...
+
+ $ git clone ipfs://$hash/repo.git
+ $ cd repo && make $stuff
+ $ git commit -a -m 'done!'
+ $ git push origin
+ => clone-able as ipfs://$newHash/repo.git
+
+Links
+
+https://ipfs.io
+
+https://github.com/whyrusleeping/git-ipfs-rehost
+
+https://git-scm.com/docs/gitremote-helpers
+*/
 package main
 
 import (
@@ -25,8 +45,6 @@ import (
 const usageMsg = `usage git-remote-ipfs <repository> [<URL>]
 supports ipfs://$hash/path..
 
-TODO:
-- urls like ipfs::/path/
 `
 
 func usage() {
@@ -82,15 +100,13 @@ func main() {
 	); err != nil {
 		log.Fatalln("root hash pipe failed", err)
 	}
-
 	hash := b.String()
 	const expAdded = "added "
 	if !strings.HasPrefix(hash, expAdded) {
 		log.Fatal("invalid output of root-hash-pipe, expected: %s got: %s", expAdded, hash)
 	}
 	hash = hash[len(expAdded):]
-	log.Println("DEBUG: root hash: ", hash)
-
+	log.Println("DEBUG: repo root hash: ", hash)
 	tmpBareRepo = fetchFullBareRepo(hash)
 
 	go speakGit(os.Stdin, os.Stdout)
@@ -103,7 +119,6 @@ func main() {
 func speakGit(r io.Reader, w io.Writer) {
 	r = debug.NewReadLogger("git>>", r)
 	w = debug.NewWriteLogger("git<<", w)
-
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		text := scanner.Text()
@@ -117,17 +132,14 @@ func speakGit(r io.Reader, w io.Writer) {
 
 		case strings.HasPrefix(text, "list"):
 			log.Println("DEBUG: got list line")
-
 			var b bytes.Buffer
 			log.Println("DEBUG: tmp repo:", tmpBareRepo)
 			cmd := exec.Command("git", "ls-remote", tmpBareRepo)
 			cmd.Stdout = &b
 			cmd.Stderr = &b
-
 			if err := cmd.Run(); err != nil {
 				log.Fatalf("git ls-remote Run error: %s", err)
 			}
-
 			log.Println("DEBUG: ran git ls-remote")
 			// convert tabs to spaces
 			tabToSpace := strings.NewReplacer("\t", " ")
@@ -142,21 +154,20 @@ func speakGit(r io.Reader, w io.Writer) {
 			if len(fetchSplit) < 2 {
 				log.Printf("malformed 'fetch' command. %q", text)
 			}
-			log.Printf("DEBUG: fetch sha1<%s> name<%s>", fetchSplit[1], fetchSplit[2])
+			log.Printf("fetch sha1<%s> name<%s>", fetchSplit[1], fetchSplit[2])
 			err := fetchObject(fetchSplit[1])
 			if err == nil {
-				log.Println("fetchObject() worked")
+				//log.Println("fetchObject() worked")
 				//fmt.Fprintln(w, "")
 				continue
 			}
 			log.Println("method1 failed:", err)
-
 			err = fetchPackedObject(fetchSplit[1])
 			if err == nil {
-				log.Println("fetchPackedObject() worked")
+				//log.Println("fetchPackedObject() worked")
 				continue
 			}
-			log.Println("method2 failed:", err)
+			log.Println("fetchPackedObject() failed:", err)
 			os.Exit(1)
 
 		case text == "":

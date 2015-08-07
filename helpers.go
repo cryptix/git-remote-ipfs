@@ -16,7 +16,6 @@ import (
 func fetchFullBareRepo(root string) string {
 	// TODO: document host format
 	shell := shell.NewShell("localhost:5001")
-
 	tmpPath := filepath.Join("/", os.TempDir(), root)
 	s, err := os.Stat(tmpPath)
 	if err != nil {
@@ -51,7 +50,6 @@ func Execute(output_buffer *bytes.Buffer, stack ...*exec.Cmd) (err error) {
 	}
 	stack[i].Stdout = output_buffer
 	stack[i].Stderr = &error_buffer
-
 	if err := call(stack, pipe_stack); err != nil {
 		log.Fatalln(string(error_buffer.Bytes()), err)
 	}

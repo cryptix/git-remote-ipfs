@@ -39,6 +39,8 @@ import (
 	"os/exec"
 	"strings"
 
+	"gopkg.in/errgo.v1"
+
 	"github.com/cryptix/go/debug"
 )
 
@@ -55,13 +57,16 @@ func usage() {
 var (
 	tmpBareRepo string
 	thisGitRepo string
+	errc        chan<- error
 )
 
 func main() {
+	// logging
 	log.SetFlags(0)
 	log.SetOutput(os.Stderr)
 	log.SetPrefix("git-remote-ipfs:")
 
+	// env var and arguments
 	thisGitRepo := os.Getenv("GIT_DIR")
 	if thisGitRepo == "" {
 		log.Fatal("could not get GIT_DIR env var")
@@ -75,29 +80,38 @@ func main() {
 		log.Println("repo:", os.Args[1])
 		log.Println("url:", os.Args[2])
 		u = os.Args[2]
-
 	default:
 		log.Fatalf("usage: unknown # of args: %d\n%v", v, os.Args[1:])
 	}
 
-	// since we get a proper URL, we can parse it make sure its valid
+	// parse passed URL
 	repoUrl, err := url.Parse(u)
 	if err != nil {
 		log.Fatalf("url.Parse() failed: %s", err)
 	}
-	//log.Printf("dbg: repo url %#v", repoUrl)
-
 	if repoUrl.Scheme != "ipfs" { // ipns will have a seperate helper(?)
 		log.Fatal("only ipfs schema is supported")
 	}
 
-	// get root hash of the passed repo path
-	path := fmt.Sprintf("/ipfs/%s/%s", repoUrl.Host, repoUrl.Path)
-	tmpBareRepo = fetchFullBareRepo(path)
+	// fetch passed repo to a temp directory
+	tmpBareRepo, err = fetchFullBareRepo(fmt.Sprintf("/ipfs/%s/%s", repoUrl.Host, repoUrl.Path))
+	if err != nil {
+		log.Fatalf("fetchFullBareRepo() failed: %s", err)
+	}
+
+	// interrupt / error handling
+	ec := make(chan error)
+	errc = ec
+	go func() {
+		errc <- interrupt()
+	}()
 
 	go speakGit(os.Stdin, os.Stdout)
 
-	select {} // block indefinetly - until stdin closes most likly
+	log.Println("closing error:", <-ec)
+	if err := os.RemoveAll(tmpBareRepo); err != nil {
+		log.Fatalf("os.RemoveAll(%s) failed: %s", tmpBareRepo, err)
+	}
 }
 
 // speakGit acts like a git-remote-helper
@@ -124,14 +138,16 @@ func speakGit(r io.Reader, w io.Writer) {
 			cmd.Stdout = &b
 			cmd.Stderr = &b
 			if err := cmd.Run(); err != nil {
-				log.Fatalf("git ls-remote Run error: %s", err)
+				errc <- errgo.Notef(err, "[exec] git ls-remote %q failed", tmpBareRepo)
+				return
 			}
 			log.Println("DEBUG: ran git ls-remote")
 			// convert tabs to spaces
 			tabToSpace := strings.NewReplacer("\t", " ")
 			_, err := tabToSpace.WriteString(w, b.String())
 			if err != nil {
-				log.Fatalf("git ls-remote tab conversion error: %s", err)
+				errc <- errgo.Notef(err, "git ls-remote tab conversion failed")
+				return
 			}
 			fmt.Fprintln(w, "")
 
@@ -149,27 +165,26 @@ func speakGit(r io.Reader, w io.Writer) {
 			}
 			log.Println("method1 failed:", err)
 			err = fetchPackedObject(fetchSplit[1])
-			if err == nil {
-				//log.Println("fetchPackedObject() worked")
-				continue
+			if err != nil {
+				errc <- errgo.Notef(err, "fetchPackedObject() failed")
+				return
 			}
-			log.Println("fetchPackedObject() failed:", err)
-			os.Exit(1)
 
 		case text == "":
 			log.Println("DEBUG: got empty line (end of fetch batch?)")
 			fmt.Fprintln(w, "")
 
 		default:
-			log.Printf("DEBUG: default git speak: %q\n", text)
-			os.Exit(3)
+			errc <- errgo.Newf("Error: default git speak: %q", text)
+			return
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.Fatalf("stdin scanner error: %s", err)
+		errc <- errgo.Notef(err, "scanner.Err()")
+		return
 	}
 
 	log.Println("speakGit: exited read loop")
-	os.Exit(0)
+	errc <- nil
 }

@@ -1,32 +1,34 @@
 package main
 
 import (
-	"log"
+	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 
 	"github.com/whyrusleeping/ipfs-shell"
+	"gopkg.in/errgo.v1"
 )
 
-// fetfetchFullBareRepo 'ipfs get's a root hash and returns its location in an os temp directory
-// TODO(cryptix): clean up
-func fetchFullBareRepo(root string) string {
-	// TODO: document host format
+func fetchFullBareRepo(root string) (string, error) {
+	// TODO: get host from envvar
 	shell := shell.NewShell("localhost:5001")
 	tmpPath := filepath.Join("/", os.TempDir(), root)
-	s, err := os.Stat(tmpPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			if err := shell.Get(root, tmpPath); err != nil {
-				log.Fatalf("shell.Get(%s, %s) failed: %s", root, tmpPath, err)
-			}
-			log.Println("DEBUG: shell got:", root)
-			return tmpPath
+	_, err := os.Stat(tmpPath)
+	switch {
+	case os.IsNotExist(err) || err == nil:
+		if err := shell.Get(root, tmpPath); err != nil {
+			return "", errgo.Notef(err, "shell.Get(%s, %s) failed: %s", root, tmpPath, err)
 		}
-		log.Fatalf("stat err: %s", err)
+		return tmpPath, nil
+	default:
+		return "", errgo.Notef(err, "os.Stat(): unhandled error")
 	}
-	if !s.IsDir() {
-		log.Fatalf("please delete %s")
-	}
-	return tmpPath
+}
+
+func interrupt() error {
+	c := make(chan os.Signal)
+	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+	return fmt.Errorf("%s", <-c)
 }

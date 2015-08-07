@@ -93,21 +93,7 @@ func main() {
 
 	// get root hash of the passed repo path
 	path := fmt.Sprintf("/ipfs/%s/%s", repoUrl.Host, repoUrl.Path)
-	var b bytes.Buffer
-	if err := Execute(&b,
-		exec.Command("ipfs", "object", "get", path),
-		exec.Command("ipfs", "object", "put", "--inputenc=json"),
-	); err != nil {
-		log.Fatalln("root hash pipe failed", err)
-	}
-	hash := b.String()
-	const expAdded = "added "
-	if !strings.HasPrefix(hash, expAdded) {
-		log.Fatal("invalid output of root-hash-pipe, expected: %s got: %s", expAdded, hash)
-	}
-	hash = hash[len(expAdded):]
-	log.Println("DEBUG: repo root hash: ", hash)
-	tmpBareRepo = fetchFullBareRepo(hash)
+	tmpBareRepo = fetchFullBareRepo(path)
 
 	go speakGit(os.Stdin, os.Stdout)
 

@@ -34,19 +34,9 @@ func usage() {
 	os.Exit(2)
 }
 
-type mode uint
-
-const (
-	_ mode = iota
-	fetch
-	push
-)
-
 var (
 	tmpBareRepo string
 	thisGitRepo string
-
-	curr mode
 )
 
 func main() {
@@ -77,49 +67,42 @@ func main() {
 	if err != nil {
 		log.Fatalf("url.Parse() failed: %s", err)
 	}
-	log.Printf("dbg: repo url %#v", repoUrl)
+	//log.Printf("dbg: repo url %#v", repoUrl)
 
 	if repoUrl.Scheme != "ipfs" { // ipns will have a seperate helper(?)
 		log.Fatal("only ipfs schema is supported")
 	}
 
-	if u == "ipfs://new" {
-		// assuming new push
-		curr = push
-
-	} else {
-		curr = fetch
-		// get root hash of the passed repo path
-		path := fmt.Sprintf("/ipfs/%s/%s", repoUrl.Host, repoUrl.Path)
-		var b bytes.Buffer
-		if err := Execute(&b,
-			exec.Command("ipfs", "object", "get", path),
-			exec.Command("ipfs", "object", "put", "--inputenc=json"),
-		); err != nil {
-			log.Fatalln("root hash pipe failed", err)
-		}
-
-		hash := b.String()
-		const expAdded = "added "
-		if !strings.HasPrefix(hash, expAdded) {
-			log.Fatal("invalid output of root-hash-pipe, expected: %s got: %s", expAdded, hash)
-		}
-		hash = hash[len(expAdded):]
-		log.Println("DEBUG: root hash: ", hash)
-
-		tmpBareRepo = fetchFullBareRepo(hash)
+	// get root hash of the passed repo path
+	path := fmt.Sprintf("/ipfs/%s/%s", repoUrl.Host, repoUrl.Path)
+	var b bytes.Buffer
+	if err := Execute(&b,
+		exec.Command("ipfs", "object", "get", path),
+		exec.Command("ipfs", "object", "put", "--inputenc=json"),
+	); err != nil {
+		log.Fatalln("root hash pipe failed", err)
 	}
 
-	go speakGit(os.Stdin)
+	hash := b.String()
+	const expAdded = "added "
+	if !strings.HasPrefix(hash, expAdded) {
+		log.Fatal("invalid output of root-hash-pipe, expected: %s got: %s", expAdded, hash)
+	}
+	hash = hash[len(expAdded):]
+	log.Println("DEBUG: root hash: ", hash)
+
+	tmpBareRepo = fetchFullBareRepo(hash)
+
+	go speakGit(os.Stdin, os.Stdout)
 
 	select {} // block indefinetly - until stdin closes most likly
 }
 
 // speakGit acts like a git-remote-helper
 // see this for more: https://www.kernel.org/pub/software/scm/git/docs/gitremote-helpers.html
-func speakGit(r io.Reader) {
+func speakGit(r io.Reader, w io.Writer) {
 	r = debug.NewReadLogger("git>>", r)
-	w := debug.NewWriteLogger("git<<", os.Stdout)
+	w = debug.NewWriteLogger("git<<", w)
 
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
@@ -128,11 +111,11 @@ func speakGit(r io.Reader) {
 
 		case text == "capabilities":
 			log.Println("DEBUG: got caps line")
-			if curr == fetch {
-				fmt.Fprintf(w, "fetch\n\n")
-			}
+			fmt.Fprintln(w, "fetch")
+			fmt.Fprintln(w, "push")
+			fmt.Fprintln(w, "")
 
-		case text == "list":
+		case strings.HasPrefix(text, "list"):
 			log.Println("DEBUG: got list line")
 
 			var b bytes.Buffer
@@ -182,6 +165,7 @@ func speakGit(r io.Reader) {
 
 		default:
 			log.Printf("DEBUG: default git speak: %q\n", text)
+			os.Exit(3)
 		}
 	}
 

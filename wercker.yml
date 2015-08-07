@@ -5,8 +5,7 @@ box: golang
 
 services:
         - id: jbenet/go-ipfs
-        volume:
-                /tmp/ipfs:/data/ipfs
+        volume: /tmp/ipfs:/data/ipfs
 
 build:
   steps:

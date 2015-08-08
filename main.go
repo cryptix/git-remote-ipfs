@@ -27,6 +27,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -100,7 +101,7 @@ func main() {
 
 	go speakGit(os.Stdin, os.Stdout)
 	if err = <-ec; err != nil {
-		log.Error("closing error:")
+		log.Error("closing error:", err)
 	}
 }
 
@@ -127,16 +128,48 @@ func speakGit(r io.Reader, w io.Writer) {
 				errc <- errgo.Notef(err, "failed to cat info/refs from %s", ipfsRepoPath)
 				return
 			}
-			refs, err := ioutil.ReadAll(refsCat)
-			if err != nil {
-				errc <- errgo.Notef(err, "failed to readAll info/refs from %s", ipfsRepoPath)
+			ref2hash := make(map[string]string)
+			s := bufio.NewScanner(refsCat)
+			for s.Scan() {
+				hashRef := strings.Split(s.Text(), "\t")
+				if len(hashRef) != 2 {
+					errc <- errgo.Newf("processing info/refs: what is this: %v", hashRef)
+					return
+				}
+				ref2hash[hashRef[1]] = hashRef[0]
+				log.WithField("ref", hashRef[1]).WithField("sha1", hashRef[0]).Debug("got ref")
+			}
+			if err := s.Err(); err != nil {
+				errc <- errgo.Notef(err, "ipfs.Cat(info/refs) scanner error")
 				return
 			}
-			tabToSpace := strings.NewReplacer("\t", " ")
-			_, err = tabToSpace.WriteString(w, string(refs))
+			headCat, err := ipfsShell.Cat(filepath.Join(ipfsRepoPath, "HEAD"))
 			if err != nil {
-				errc <- errgo.Notef(err, "git list response tab>space conversion failed")
+				errc <- errgo.Notef(err, "failed to cat HEAD from %s", ipfsRepoPath)
 				return
+			}
+			head, err := ioutil.ReadAll(headCat)
+			if err != nil {
+				errc <- errgo.Notef(err, "failed to readAll HEAD from %s", ipfsRepoPath)
+				return
+			}
+			if !bytes.HasPrefix(head, []byte("ref: ")) {
+				errc <- errgo.Newf("illegal HEAD file from %s: %q", ipfsRepoPath, head)
+				return
+			}
+			headRef := string(bytes.TrimSpace(head[5:]))
+			headHash, ok := ref2hash[headRef]
+			if !ok {
+				// use first hash in map?..
+				errc <- errgo.Newf("unknown HEAD reference %q", headRef)
+				return
+			}
+			log.WithField("ref", headRef).WithField("sha1", headHash).Debug("got HEAD ref")
+
+			// output
+			fmt.Fprintf(w, "%s HEAD\n", headHash)
+			for ref, hash := range ref2hash {
+				fmt.Fprintf(w, "%s %s\n", hash, ref)
 			}
 			fmt.Fprintln(w, "")
 

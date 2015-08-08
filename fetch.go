@@ -19,17 +19,36 @@ func fetchObject(sha1 string) error {
 	p := filepath.Join(ipfsRepoPath, "objects", sha1[:2], sha1[2:])
 	objF, err := ipfsShell.Cat(p)
 	if err != nil {
-		return errgo.Notef(err, "shell.Cat(%q) failed", p)
+		return errgo.Notef(err, "shell.Cat(%q) commit failed", p)
 	}
 	obj, err := git.DecodeObject(objF)
 	if err != nil {
-		return errgo.Notef(err, "git.DecodeObject() failed")
+		return errgo.Notef(err, "git.DecodeObject(commit) failed")
 	}
-	log.WithField("obj", obj).Warning("TODO: assert(obj.type==commit)")
-	// assert(typ=commit)
+	commit, ok := obj.Commit()
+	if !ok {
+		return errgo.Newf("sha1 is not a git commit object")
+	}
 	// >recurese parent?
-	// >recurse tree & store blobs
 
+	// >recurse tree & store blobs
+	p = filepath.Join(ipfsRepoPath, "objects", commit.Tree[:2], commit.Tree[2:])
+	objF, err = ipfsShell.Cat(p)
+	if err != nil {
+		return errgo.Notef(err, "shell.Cat(%q) tree failed", p)
+	}
+	obj, err = git.DecodeObject(objF)
+	if err != nil {
+		return errgo.Notef(err, "git.DecodeObject(tree) failed")
+	}
+
+	tree, ok := obj.Tree()
+	if !ok {
+		return errgo.Newf("sha1 is not a git tree object")
+	}
+
+	log.Warning("Trees!")
+	log.Warning(tree)
 	return errgo.Newf("TODO: unsupported - please see issue #1")
 }
 
@@ -95,17 +114,6 @@ func fetchPackedObject(sha1 string) error {
 			return errgo.Notef(err, "fetchPackedObject: pack<%s> 'git unpack-objects' failed\nOutput: %s", sha1, b.String())
 		}
 		log.Debug("git unpack-objects ...:", b.String())
-		// found and unpacked - done
-		// TODO(cryptix): somehow git doesnt checkout now..?
-		// 'warning: remote HEAD refers to nonexistent ref, unable to checkout.'
-		//b.Reset()
-		//symRef := exec.Command("git", "symbolic-ref", "HEAD", "ref/heads/master")
-		//symRef.Dir = thisGitRepo // GIT_DIR
-		//symRef.Stdout = &b
-		//symRef.Stderr = &b
-		//if err := symRef.Run(); err != nil {
-		//	return errgo.Notef(err, "fetchPackedObject: 'git symbolic-ref HEAD ref/heads/master' failed\nOutput: %s", b.String())
-		//}
 		return nil
 	}
 	return errgo.Newf("did not find sha1<%s> in %d index files", sha1, len(indexes))

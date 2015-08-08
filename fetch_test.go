@@ -40,7 +40,11 @@ func checkInstalled(t *testing.T) {
 	}
 	_, err = exec.LookPath("git-remote-ipfs")
 	if err != nil {
-		t.Fatal("git-remote-ipfs is not installed")
+		t.Log("git-remote-ipfs is not installed")
+		if out, err := exec.Command("go", "install", "github.com/cryptix/git-remote-ipfs").CombinedOutput(); err != nil {
+			t.Log(fmt.Sprintf("%q", string(out)))
+			t.Fatal("go install failed:", err)
+		}
 	}
 
 	// check for daemon... maybe need to init ipfs
@@ -52,25 +56,57 @@ func checkInstalled(t *testing.T) {
 	}
 }
 
+// oh well.. just some rand string
+func mkRandTmpDir(t *testing.T) string {
+	var buf bytes.Buffer
+	for i := 0; i < 10; i++ {
+		if err := random.WriteRandomBytes(20, &buf); err != nil {
+			t.Fatalf("get random str: %s", err)
+		}
+		randStr := fmt.Sprintf("git-remote-ipfs-test-%x", buf.String())
+		tmpDir := filepath.Join("/", os.TempDir(), randStr)
+		_, err := os.Stat(tmpDir)
+		if os.IsNotExist(err) {
+			if err := os.MkdirAll(tmpDir, 0700); err != nil {
+				t.Fatalf("mkdirAll(%q): %s", tmpDir, err)
+			}
+			t.Logf("dbg: created %s", tmpDir)
+			return tmpDir
+		}
+		buf.Reset()
+	}
+	t.Fatal("couldnt find a tmpDir")
+	return ""
+}
+
 func TestClone(t *testing.T) {
+
+	// pinned by pinbot, prepared with 'git-ipfs-rehost https://github.com/cryptix/git-remote-ipfs-testcase unpackedTest'
+	const expected = `QmSS1VNgmPW8yFxYoHEUHDEEz8FYBucMqN8xY92Y9pGq26
+QmSKoJo4VSso89bhbiTnVsgC7jKyqdBcB5GYCozYFp7fNs
+QmaSPaHCETQmfLo7SigbaqsCHcZgivcWALMhWVnxEaNutj
+QmPiW5xxfhVA2YaVoqLXsbMvdLMuVBNL68NPL57aWCAV8X
+`
+	cloneAndCheckout(t, "ipfs://QmS5Vauz2G6DVP7NEetJBcHDUNPTRt34D6evNiwrp7Gmsk/git-remote-ipfs-testcase", expected)
+}
+
+func TestClone_unpacked(t *testing.T) {
+	// pinned by pinbot, prepared with 'git-ipfs-rehost --unpack https://github.com/cryptix/git-remote-ipfs-testcase unpackedTest'
+	const expected = `QmSS1VNgmPW8yFxYoHEUHDEEz8FYBucMqN8xY92Y9pGq26
+QmSKoJo4VSso89bhbiTnVsgC7jKyqdBcB5GYCozYFp7fNs
+QmaSPaHCETQmfLo7SigbaqsCHcZgivcWALMhWVnxEaNutj
+QmPiW5xxfhVA2YaVoqLXsbMvdLMuVBNL68NPL57aWCAV8X
+`
+	cloneAndCheckout(t, "ipfs://Qmax49BmkTVVQWxZNUP8MpCVPaRe2YAgdpKDTtzSoC3EGa/unpackedTest", expected)
+}
+
+func cloneAndCheckout(t *testing.T, repo, expected string) {
 	checkInstalled(t)
 
-	// oh well.. just some rand string
+	tmpDir := mkRandTmpDir(t)
+
 	var buf bytes.Buffer
-	if err := random.WriteRandomBytes(20, &buf); err != nil {
-		t.Fatalf("get random str: %s", err)
-	}
-	randStr := fmt.Sprintf("git-remote-ipfs-test-%x", buf.String())
-
-	tmpDir := filepath.Join("/", os.TempDir(), randStr)
-	if err := os.MkdirAll(tmpDir, 0700); err != nil {
-		t.Fatalf("mkdirAll(%q): %s", tmpDir, err)
-	}
-	t.Logf("dbg: created %s", tmpDir)
-
-	// pinned by pinbot, prepared with 'git-ipfs-rehost https://github.com/cryptix/git-remote-ipfs-testcase'
-	buf.Reset()
-	cloneCmd := exec.Command(gitPath, "clone", "ipfs://QmS5Vauz2G6DVP7NEetJBcHDUNPTRt34D6evNiwrp7Gmsk/git-remote-ipfs-testcase", tmpDir)
+	cloneCmd := exec.Command(gitPath, "clone", repo, tmpDir)
 	cloneCmd.Stdout = &buf
 	cloneCmd.Stderr = &buf
 	err := cloneCmd.Run()
@@ -88,11 +124,6 @@ func TestClone(t *testing.T) {
 	}
 
 	// compare cloned hashes against expected ones
-	const expected = `QmSS1VNgmPW8yFxYoHEUHDEEz8FYBucMqN8xY92Y9pGq26
-QmSKoJo4VSso89bhbiTnVsgC7jKyqdBcB5GYCozYFp7fNs
-QmaSPaHCETQmfLo7SigbaqsCHcZgivcWALMhWVnxEaNutj
-QmPiW5xxfhVA2YaVoqLXsbMvdLMuVBNL68NPL57aWCAV8X
-`
 	if diff := diff.Diff(expected, buf.String()); diff != "" {
 		t.Fatal(diff)
 	}

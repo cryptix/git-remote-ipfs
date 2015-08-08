@@ -30,13 +30,13 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/cryptix/go/debug"
+	"github.com/cryptix/go/logging"
 	"github.com/ipfs/go-ipfs-shell"
 	"gopkg.in/errgo.v1"
 )
@@ -56,27 +56,26 @@ var (
 	ipfsRepoPath string
 	thisGitRepo  string
 	errc         chan<- error
+	log          = logging.Logger("git-remote-ipfs")
 )
 
 func main() {
 	// logging
-	log.SetFlags(0)
-	log.SetOutput(os.Stderr)
-	log.SetPrefix("git-remote-ipfs:")
+	logging.SetupLogging(nil)
 
 	// env var and arguments
 	thisGitRepo := os.Getenv("GIT_DIR")
 	if thisGitRepo == "" {
 		log.Fatal("could not get GIT_DIR env var")
 	}
-	log.Println("GIT_DIR=", thisGitRepo)
+	log.Debug("GIT_DIR=", thisGitRepo)
 
 	var u string // repo url
 	v := len(os.Args[1:])
 	switch v {
 	case 2:
-		log.Println("repo:", os.Args[1])
-		log.Println("url:", os.Args[2])
+		log.Debug("repo:", os.Args[1])
+		log.Debug("url:", os.Args[2])
 		u = os.Args[2]
 	default:
 		log.Fatalf("usage: unknown # of args: %d\n%v", v, os.Args[1:])
@@ -100,8 +99,9 @@ func main() {
 	}()
 
 	go speakGit(os.Stdin, os.Stdout)
-
-	log.Println("closing error:", <-ec)
+	if err = <-ec; err != nil {
+		log.Error("closing error:")
+	}
 }
 
 // speakGit acts like a git-remote-helper
@@ -112,16 +112,16 @@ func speakGit(r io.Reader, w io.Writer) {
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		text := scanner.Text()
+		log.WithField("text", text).Debug("git input")
 		switch {
 
 		case text == "capabilities":
-			log.Println("DEBUG: got caps line")
 			fmt.Fprintln(w, "fetch")
 			fmt.Fprintln(w, "push")
 			fmt.Fprintln(w, "")
 
 		case strings.HasPrefix(text, "list"):
-			log.Println("DEBUG: got list line")
+			log.Debug("got list line")
 			refsCat, err := ipfsShell.Cat(filepath.Join(ipfsRepoPath, "info", "refs"))
 			if err != nil {
 				errc <- errgo.Notef(err, "failed to cat info/refs from %s", ipfsRepoPath)
@@ -138,22 +138,25 @@ func speakGit(r io.Reader, w io.Writer) {
 				errc <- errgo.Notef(err, "git list response tab>space conversion failed")
 				return
 			}
-
 			fmt.Fprintln(w, "")
 
 		case strings.HasPrefix(text, "fetch "):
 			fetchSplit := strings.Split(text, " ")
 			if len(fetchSplit) < 2 {
-				log.Printf("malformed 'fetch' command. %q", text)
+				errc <- errgo.Newf("malformed 'fetch' command. %q", text)
+				return
 			}
-			log.Printf("fetch sha1<%s> name<%s>", fetchSplit[1], fetchSplit[2])
+			log.WithFields(map[string]interface{}{
+				"sha1": fetchSplit[1],
+				"name": fetchSplit[2],
+			}).Info("fetch")
 			err := fetchObject(fetchSplit[1])
 			if err == nil {
-				//log.Println("fetchObject() worked")
-				//fmt.Fprintln(w, "")
+				log.Info("fetchObject() worked")
+				fmt.Fprintln(w, "")
 				continue
 			}
-			log.Println("method1 failed:", err)
+			log.WithField("err", err).Error("fetchObject failed")
 			err = fetchPackedObject(fetchSplit[1])
 			if err != nil {
 				errc <- errgo.Notef(err, "fetchPackedObject() failed")
@@ -161,7 +164,7 @@ func speakGit(r io.Reader, w io.Writer) {
 			}
 
 		case text == "":
-			log.Println("DEBUG: got empty line (end of fetch batch?)")
+			log.Warning("got empty line (end of fetch batch?)")
 			fmt.Fprintln(w, "")
 			fmt.Fprintln(w, "")
 			os.Exit(0)
@@ -177,6 +180,6 @@ func speakGit(r io.Reader, w io.Writer) {
 		return
 	}
 
-	log.Println("speakGit: exited read loop")
+	log.Info("speakGit: exited read loop")
 	errc <- nil
 }

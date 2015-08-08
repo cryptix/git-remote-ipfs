@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"log"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -12,7 +11,7 @@ import (
 	"gopkg.in/errgo.v1"
 )
 
-// "fetch $sha1 $ref" method 1
+// "fetch $sha1 $ref" method 1 - unpacking loose objects
 //   - look for it in ".git/objects/substr($sha1, 0, 2)/substr($sha, 2)"
 //   - if found, download it and put it in place. (there may be a command for this)
 //   - done \o/
@@ -26,7 +25,7 @@ func fetchObject(sha1 string) error {
 	if err != nil {
 		return errgo.Notef(err, "git.DecodeObject() failed")
 	}
-	log.Println(obj)
+	log.WithField("obj", obj).Warning("TODO: assert(obj.type==commit)")
 	// assert(typ=commit)
 	// >recurese parent?
 	// >recurse tree & store blobs
@@ -34,7 +33,7 @@ func fetchObject(sha1 string) error {
 	return errgo.Newf("TODO: unsupported - please see issue #1")
 }
 
-// "fetch $sha1 $ref" method 2
+// "fetch $sha1 $ref" method 2 - unpacking packed objects
 //   - look for it in packfiles by fetching ".git/objects/pack/*.idx"
 //     and looking at each idx with cat <idx> | git show-index  (alternatively can learn to read the format in go)
 //   - if found in an <idx>, download the relevant .pack file,
@@ -74,13 +73,14 @@ func fetchPackedObject(sha1 string) error {
 		}
 		cmdOut := b.String()
 		if !strings.Contains(cmdOut, sha1) {
-			// sha1 not in index, next idx file
+			log.WithField("idx", filepath.Base(idx)).Debug("git show-index: sha1 not in index, next idx file")
 			continue
 		}
-		//log.Println("git show-index:", cmdOut)
+		//log.Debug("git show-index:", cmdOut)
 
 		// we found an index with our hash inside
 		pack := strings.Replace(idx, ".idx", ".pack", 1)
+		log.Debug("unpacking:", pack)
 		packF, err := ipfsShell.Cat(pack)
 		if err != nil {
 			return errgo.Notef(err, "fetchPackedObject: pack<%s> open() failed", sha1)
@@ -94,9 +94,10 @@ func fetchPackedObject(sha1 string) error {
 		if err := unpackIdx.Run(); err != nil {
 			return errgo.Notef(err, "fetchPackedObject: pack<%s> 'git unpack-objects' failed\nOutput: %s", sha1, b.String())
 		}
-		log.Println("git index-pack ...:", b.String())
+		log.Debug("git unpack-objects ...:", b.String())
 		// found and unpacked - done
 		// TODO(cryptix): somehow git doesnt checkout now..?
+		// 'warning: remote HEAD refers to nonexistent ref, unable to checkout.'
 		//b.Reset()
 		//symRef := exec.Command("git", "symbolic-ref", "HEAD", "ref/heads/master")
 		//symRef.Dir = thisGitRepo // GIT_DIR

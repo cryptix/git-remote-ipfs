@@ -2,12 +2,12 @@ package main
 
 import (
 	"bytes"
-	"io"
 	"log"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/cryptix/exp/git"
 
 	"gopkg.in/errgo.v1"
 )
@@ -17,40 +17,21 @@ import (
 //   - if found, download it and put it in place. (there may be a command for this)
 //   - done \o/
 func fetchObject(sha1 string) error {
+	p := filepath.Join(ipfsRepoPath, "objects", sha1[:2], sha1[2:])
+	objF, err := ipfsShell.Cat(p)
+	if err != nil {
+		return errgo.Notef(err, "shell.Cat(%q) failed", p)
+	}
+	obj, err := git.DecodeObject(objF)
+	if err != nil {
+		return errgo.Notef(err, "git.DecodeObject() failed")
+	}
+	log.Println(obj)
+	// assert(typ=commit)
+	// >recurese parent?
+	// >recurse tree & store blobs
+
 	return errgo.Newf("TODO: unsupported - please see issue #1")
-	p := filepath.Join(tmpBareRepo, "objects", sha1[:2], sha1[2:])
-	packF, err := os.Open(p)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return err
-		}
-		return errgo.Notef(err, "fetchObject: sha1<%s> open() failed", sha1)
-	}
-	if thisGitRepo == "" {
-		err = errgo.New("GIT_DIR is unset. how can this be?")
-		errc <- err
-		return err
-	}
-	// TODO: didnt find a git command to impot loose blob objects
-	fanOutDir := filepath.Join(thisGitRepo, "objects", sha1[:2])
-	log.Printf("DEBUG: fan-out dir:%q gitDir: %q", fanOutDir, thisGitRepo)
-	if err := os.MkdirAll(fanOutDir, 0700); err != nil { // TODO: not sure about the mode here
-		return errgo.Notef(err, "fetchObject: sha1<%s> could not create fan-out dir", sha1)
-	}
-	newPackF, err := os.Create(filepath.Join(fanOutDir, sha1[2:]))
-	if err != nil {
-		return errgo.Notef(err, "fetchObject: sha1<%s> os.Create(newPackF) failed", sha1)
-	}
-	if _, err := io.Copy(newPackF, packF); err != nil {
-		return errgo.Notef(err, "fetchObject: sha1<%s> io.Copy(new, old) failed", sha1)
-	}
-	if err := packF.Close(); err != nil {
-		return errgo.Notef(err, "fetchObject: sha1<%s> close(packF) failed", sha1)
-	}
-	if err := newPackF.Close(); err != nil {
-		return errgo.Notef(err, "fetchObject: sha1<%s> close(newPackF) failed", sha1)
-	}
-	return nil
 }
 
 // "fetch $sha1 $ref" method 2
@@ -61,39 +42,46 @@ func fetchObject(sha1 string) error {
 //   - done \o/
 func fetchPackedObject(sha1 string) error {
 	// search for all index files
-	p := filepath.Join(tmpBareRepo, "objects", "pack", "*.idx")
-	indexes, err := filepath.Glob(p)
+	packPath := filepath.Join(ipfsRepoPath, "objects", "pack")
+	lsobj, err := ipfsShell.FileList(packPath)
 	if err != nil {
-		return errgo.Notef(err, "fetchPackedObject: glob(%q) failed", p)
+		return errgo.Notef(err, "shell FileList(%q) failed", packPath)
+	}
+	var indexes []string
+	for _, lnk := range lsobj.Links {
+		if lnk.Type == "File" && strings.HasSuffix(lnk.Name, ".idx") {
+			indexes = append(indexes, filepath.Join(packPath, lnk.Name))
+		}
 	}
 	if len(indexes) == 0 {
 		return errgo.New("fetchPackedObject: no idx files found")
 	}
 	for _, idx := range indexes {
-		idxF, err := os.Open(idx)
+		idxF, err := ipfsShell.Cat(idx)
 		if err != nil {
-			return errgo.Notef(err, "fetchPackedObject: idx<%s> open() failed", sha1)
+			return errgo.Notef(err, "fetchPackedObject: idx<%s> cat(%s) failed", sha1, idx)
 		}
-		defer idxF.Close()
+
 		// using external git show-index < idxF for now
 		// TODO: parse index file in go to make this portable
 		var b bytes.Buffer
 		showIdx := exec.Command("git", "show-index")
 		showIdx.Stdin = idxF
 		showIdx.Stdout = &b
+		showIdx.Stderr = &b
 		if err := showIdx.Run(); err != nil {
 			return errgo.Notef(err, "fetchPackedObject: idx<%s> show-index start failed", sha1)
 		}
-		if !strings.Contains(b.String(), sha1) {
+		cmdOut := b.String()
+		if !strings.Contains(cmdOut, sha1) {
 			// sha1 not in index, next idx file
 			continue
 		}
-		if err := idxF.Close(); err != nil {
-			return errgo.Notef(err, "fetchPackedObject: idx<%s> idxF.close() failed", sha1)
-		}
+		//log.Println("git show-index:", cmdOut)
+
 		// we found an index with our hash inside
 		pack := strings.Replace(idx, ".idx", ".pack", 1)
-		packF, err := os.Open(pack)
+		packF, err := ipfsShell.Cat(pack)
 		if err != nil {
 			return errgo.Notef(err, "fetchPackedObject: pack<%s> open() failed", sha1)
 		}
@@ -102,13 +90,21 @@ func fetchPackedObject(sha1 string) error {
 		unpackIdx.Dir = thisGitRepo // GIT_DIR
 		unpackIdx.Stdin = packF
 		unpackIdx.Stdout = &b
+		unpackIdx.Stderr = &b
 		if err := unpackIdx.Run(); err != nil {
 			return errgo.Notef(err, "fetchPackedObject: pack<%s> 'git unpack-objects' failed\nOutput: %s", sha1, b.String())
 		}
-		if err := packF.Close(); err != nil {
-			return errgo.Notef(err, "fetchPackedObject: pack<%s> packF.close() failed", sha1)
-		}
+		log.Println("git index-pack ...:", b.String())
 		// found and unpacked - done
+		// TODO(cryptix): somehow git doesnt checkout now..?
+		//b.Reset()
+		//symRef := exec.Command("git", "symbolic-ref", "HEAD", "ref/heads/master")
+		//symRef.Dir = thisGitRepo // GIT_DIR
+		//symRef.Stdout = &b
+		//symRef.Stderr = &b
+		//if err := symRef.Run(); err != nil {
+		//	return errgo.Notef(err, "fetchPackedObject: 'git symbolic-ref HEAD ref/heads/master' failed\nOutput: %s", b.String())
+		//}
 		return nil
 	}
 	return errgo.Newf("did not find sha1<%s> in %d index files", sha1, len(indexes))

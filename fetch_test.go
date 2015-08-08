@@ -73,8 +73,9 @@ func TestClone(t *testing.T) {
 	cloneCmd := exec.Command(gitPath, "clone", "ipfs://QmS5Vauz2G6DVP7NEetJBcHDUNPTRt34D6evNiwrp7Gmsk/git-remote-ipfs-testcase", tmpDir)
 	cloneCmd.Stdout = &buf
 	cloneCmd.Stderr = &buf
-	if err := cloneCmd.Run(); err != nil { // exit status 0?
-		t.Log(buf.String())
+	err := cloneCmd.Run()
+	t.Log(buf.String())
+	if err != nil { // exit status 0?
 		t.Fatalf("git clone ipfs:// failed: %s", err)
 	}
 

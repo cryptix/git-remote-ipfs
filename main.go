@@ -7,9 +7,6 @@ Currently assumes a IPFS Daemon at localhost:5001
 
 Not completed: Push, IPNS, URLs like ipfs::path/.., embedded IPFS node
 
-
-Example
-
 ...
 
  $ git clone ipfs://$hash/repo.git
@@ -30,18 +27,18 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
-	"os/exec"
+	"path/filepath"
 	"strings"
 
-	"gopkg.in/errgo.v1"
-
 	"github.com/cryptix/go/debug"
+	"github.com/ipfs/go-ipfs-shell"
+	"gopkg.in/errgo.v1"
 )
 
 const usageMsg = `usage git-remote-ipfs <repository> [<URL>]
@@ -55,9 +52,10 @@ func usage() {
 }
 
 var (
-	tmpBareRepo string
-	thisGitRepo string
-	errc        chan<- error
+	ipfsShell    = shell.NewShell("localhost:5001")
+	ipfsRepoPath string
+	thisGitRepo  string
+	errc         chan<- error
 )
 
 func main() {
@@ -92,12 +90,7 @@ func main() {
 	if repoUrl.Scheme != "ipfs" { // ipns will have a seperate helper(?)
 		log.Fatal("only ipfs schema is supported")
 	}
-
-	// fetch passed repo to a temp directory
-	tmpBareRepo, err = fetchFullBareRepo(fmt.Sprintf("/ipfs/%s/%s", repoUrl.Host, repoUrl.Path))
-	if err != nil {
-		log.Fatalf("fetchFullBareRepo() failed: %s", err)
-	}
+	ipfsRepoPath = fmt.Sprintf("/ipfs/%s/%s", repoUrl.Host, repoUrl.Path)
 
 	// interrupt / error handling
 	ec := make(chan error)
@@ -109,9 +102,6 @@ func main() {
 	go speakGit(os.Stdin, os.Stdout)
 
 	log.Println("closing error:", <-ec)
-	if err := os.RemoveAll(tmpBareRepo); err != nil {
-		log.Fatalf("os.RemoveAll(%s) failed: %s", tmpBareRepo, err)
-	}
 }
 
 // speakGit acts like a git-remote-helper
@@ -132,23 +122,23 @@ func speakGit(r io.Reader, w io.Writer) {
 
 		case strings.HasPrefix(text, "list"):
 			log.Println("DEBUG: got list line")
-			var b bytes.Buffer
-			log.Println("DEBUG: tmp repo:", tmpBareRepo)
-			cmd := exec.Command("git", "ls-remote", tmpBareRepo)
-			cmd.Stdout = &b
-			cmd.Stderr = &b
-			if err := cmd.Run(); err != nil {
-				errc <- errgo.Notef(err, "[exec] git ls-remote %q failed", tmpBareRepo)
-				return
-			}
-			log.Println("DEBUG: ran git ls-remote")
-			// convert tabs to spaces
-			tabToSpace := strings.NewReplacer("\t", " ")
-			_, err := tabToSpace.WriteString(w, b.String())
+			refsCat, err := ipfsShell.Cat(filepath.Join(ipfsRepoPath, "info", "refs"))
 			if err != nil {
-				errc <- errgo.Notef(err, "git ls-remote tab conversion failed")
+				errc <- errgo.Notef(err, "failed to cat info/refs from %s", ipfsRepoPath)
 				return
 			}
+			refs, err := ioutil.ReadAll(refsCat)
+			if err != nil {
+				errc <- errgo.Notef(err, "failed to readAll info/refs from %s", ipfsRepoPath)
+				return
+			}
+			tabToSpace := strings.NewReplacer("\t", " ")
+			_, err = tabToSpace.WriteString(w, string(refs))
+			if err != nil {
+				errc <- errgo.Notef(err, "git list response tab>space conversion failed")
+				return
+			}
+
 			fmt.Fprintln(w, "")
 
 		case strings.HasPrefix(text, "fetch "):
@@ -173,6 +163,8 @@ func speakGit(r io.Reader, w io.Writer) {
 		case text == "":
 			log.Println("DEBUG: got empty line (end of fetch batch?)")
 			fmt.Fprintln(w, "")
+			fmt.Fprintln(w, "")
+			os.Exit(0)
 
 		default:
 			errc <- errgo.Newf("Error: default git speak: %q", text)

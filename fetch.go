@@ -64,7 +64,7 @@ func fetchAndWriteObj(sha1 string) (*git.Object, error) {
 	p := filepath.Join(ipfsRepoPath, "objects", sha1[:2], sha1[2:])
 	objF, err := ipfsShell.Cat(p)
 	if err != nil {
-		return nil, errgo.Notef(err, "shell.Cat(%q) commit failed", p)
+		return nil, errgo.Notef(err, "shell.Cat() commit failed")
 	}
 	targetP := filepath.Join(thisGitRepo, "objects", sha1[:2], sha1[2:])
 	if err := os.MkdirAll(filepath.Join(thisGitRepo, "objects", sha1[:2]), 0700); err != nil {
@@ -112,7 +112,6 @@ func fetchPackedObject(sha1 string) error {
 		if err != nil {
 			return errgo.Notef(err, "fetchPackedObject: idx<%s> cat(%s) failed", sha1, idx)
 		}
-
 		// using external git show-index < idxF for now
 		// TODO: parse index file in go to make this portable
 		var b bytes.Buffer
@@ -129,7 +128,6 @@ func fetchPackedObject(sha1 string) error {
 			continue
 		}
 		//log.Debug("git show-index:", cmdOut)
-
 		// we found an index with our hash inside
 		pack := strings.Replace(idx, ".idx", ".pack", 1)
 		log.Debug("unpacking:", pack)

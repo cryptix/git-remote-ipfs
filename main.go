@@ -69,6 +69,11 @@ func main() {
 	if thisGitRepo == "" {
 		log.Fatal("could not get GIT_DIR env var")
 	}
+	if thisGitRepo == ".git" {
+		cwd, err := os.Getwd()
+		logging.CheckFatal(err)
+		thisGitRepo = filepath.Join(cwd, ".git")
+	}
 	log.Debug("GIT_DIR=", thisGitRepo)
 
 	var u string // repo url
@@ -93,27 +98,26 @@ func main() {
 	ipfsRepoPath = fmt.Sprintf("/ipfs/%s/%s", repoUrl.Host, repoUrl.Path)
 
 	// interrupt / error handling
-	ec := make(chan error)
-	errc = ec
 	go func() {
-		errc <- interrupt()
+		if err := interrupt(); err != nil {
+			log.Fatal("interrupted:", err)
+		}
 	}()
 
-	go speakGit(os.Stdin, os.Stdout)
-	if err = <-ec; err != nil {
-		log.Error("closing error:", err)
+	if err := speakGit(os.Stdin, os.Stdout); err != nil {
+		log.Fatal("speakGit failed:", err)
 	}
 }
 
 // speakGit acts like a git-remote-helper
 // see this for more: https://www.kernel.org/pub/software/scm/git/docs/gitremote-helpers.html
-func speakGit(r io.Reader, w io.Writer) {
-	r = debug.NewReadLogger("git>>", r)
-	w = debug.NewWriteLogger("git<<", w)
+func speakGit(r io.Reader, w io.Writer) error {
+	debugLog := logging.Logger("git")
+	r = debug.NewReadLogrus(debugLog, r)
+	w = debug.NewWriteLogrus(debugLog, w)
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		text := scanner.Text()
-		log.WithField("text", text).Debug("git input")
 		switch {
 
 		case text == "capabilities":
@@ -125,44 +129,37 @@ func speakGit(r io.Reader, w io.Writer) {
 			log.Debug("got list line")
 			refsCat, err := ipfsShell.Cat(filepath.Join(ipfsRepoPath, "info", "refs"))
 			if err != nil {
-				errc <- errgo.Notef(err, "failed to cat info/refs from %s", ipfsRepoPath)
-				return
+				return errgo.Notef(err, "failed to cat info/refs from %s", ipfsRepoPath)
 			}
 			ref2hash := make(map[string]string)
 			s := bufio.NewScanner(refsCat)
 			for s.Scan() {
 				hashRef := strings.Split(s.Text(), "\t")
 				if len(hashRef) != 2 {
-					errc <- errgo.Newf("processing info/refs: what is this: %v", hashRef)
-					return
+					return errgo.Newf("processing info/refs: what is this: %v", hashRef)
 				}
 				ref2hash[hashRef[1]] = hashRef[0]
 				log.WithField("ref", hashRef[1]).WithField("sha1", hashRef[0]).Debug("got ref")
 			}
 			if err := s.Err(); err != nil {
-				errc <- errgo.Notef(err, "ipfs.Cat(info/refs) scanner error")
-				return
+				return errgo.Notef(err, "ipfs.Cat(info/refs) scanner error")
 			}
 			headCat, err := ipfsShell.Cat(filepath.Join(ipfsRepoPath, "HEAD"))
 			if err != nil {
-				errc <- errgo.Notef(err, "failed to cat HEAD from %s", ipfsRepoPath)
-				return
+				return errgo.Notef(err, "failed to cat HEAD from %s", ipfsRepoPath)
 			}
 			head, err := ioutil.ReadAll(headCat)
 			if err != nil {
-				errc <- errgo.Notef(err, "failed to readAll HEAD from %s", ipfsRepoPath)
-				return
+				return errgo.Notef(err, "failed to readAll HEAD from %s", ipfsRepoPath)
 			}
 			if !bytes.HasPrefix(head, []byte("ref: ")) {
-				errc <- errgo.Newf("illegal HEAD file from %s: %q", ipfsRepoPath, head)
-				return
+				return errgo.Newf("illegal HEAD file from %s: %q", ipfsRepoPath, head)
 			}
 			headRef := string(bytes.TrimSpace(head[5:]))
 			headHash, ok := ref2hash[headRef]
 			if !ok {
 				// use first hash in map?..
-				errc <- errgo.Newf("unknown HEAD reference %q", headRef)
-				return
+				return errgo.Newf("unknown HEAD reference %q", headRef)
 			}
 			log.WithField("ref", headRef).WithField("sha1", headHash).Debug("got HEAD ref")
 
@@ -176,43 +173,41 @@ func speakGit(r io.Reader, w io.Writer) {
 		case strings.HasPrefix(text, "fetch "):
 			fetchSplit := strings.Split(text, " ")
 			if len(fetchSplit) < 2 {
-				errc <- errgo.Newf("malformed 'fetch' command. %q", text)
-				return
+				return errgo.Newf("malformed 'fetch' command. %q", text)
 			}
-			log.WithFields(map[string]interface{}{
+			f := map[string]interface{}{
 				"sha1": fetchSplit[1],
 				"name": fetchSplit[2],
-			}).Info("fetch")
+			}
 			err := fetchObject(fetchSplit[1])
 			if err == nil {
-				log.Info("fetchObject() worked")
+				log.WithFields(f).Info("fetched loose")
 				fmt.Fprintln(w, "")
 				continue
 			}
-			log.WithField("err", err).Error("fetchObject failed")
+			log.WithFields(f).WithField("err", err).Warning("fetchLooseObject failed, trying packed...")
 			err = fetchPackedObject(fetchSplit[1])
 			if err != nil {
-				errc <- errgo.Notef(err, "fetchPackedObject() failed")
-				return
+				return errgo.Notef(err, "fetchPackedObject() failed")
 			}
+			log.WithFields(f).Info("fetched packed")
+			fmt.Fprintln(w, "")
 
 		case text == "":
-			log.Warning("got empty line (end of fetch batch?)")
+			// TODO(cryptix): count fetches and track them
+			log.Debug("got empty line (end of fetch batch?)")
 			fmt.Fprintln(w, "")
-			fmt.Fprintln(w, "")
-			os.Exit(0)
+			return nil
 
 		default:
-			errc <- errgo.Newf("Error: default git speak: %q", text)
-			return
+			return errgo.Newf("Error: default git speak: %q", text)
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		errc <- errgo.Notef(err, "scanner.Err()")
-		return
+		return errgo.Notef(err, "scanner.Err()")
 	}
 
 	log.Info("speakGit: exited read loop")
-	errc <- nil
+	return nil
 }

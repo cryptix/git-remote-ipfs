@@ -65,7 +65,7 @@ func main() {
 	logging.SetupLogging(nil)
 
 	// env var and arguments
-	thisGitRepo := os.Getenv("GIT_DIR")
+	thisGitRepo = os.Getenv("GIT_DIR")
 	if thisGitRepo == "" {
 		log.Fatal("could not get GIT_DIR env var")
 	}

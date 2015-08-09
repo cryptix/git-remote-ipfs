@@ -2,12 +2,13 @@ package main
 
 import (
 	"bytes"
+	"io"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/cryptix/exp/git"
-
 	"gopkg.in/errgo.v1"
 )
 
@@ -16,40 +17,72 @@ import (
 //   - if found, download it and put it in place. (there may be a command for this)
 //   - done \o/
 func fetchObject(sha1 string) error {
-	p := filepath.Join(ipfsRepoPath, "objects", sha1[:2], sha1[2:])
-	objF, err := ipfsShell.Cat(p)
+	return recurseCommit(sha1)
+}
+
+func recurseCommit(sha1 string) error {
+	obj, err := fetchAndWriteObj(sha1)
 	if err != nil {
-		return errgo.Notef(err, "shell.Cat(%q) commit failed", p)
-	}
-	obj, err := git.DecodeObject(objF)
-	if err != nil {
-		return errgo.Notef(err, "git.DecodeObject(commit) failed")
+		return errgo.Notef(err, "fetchAndWriteObj(%s) commit object failed", sha1)
 	}
 	commit, ok := obj.Commit()
 	if !ok {
-		return errgo.Newf("sha1 is not a git commit object")
+		return errgo.Newf("sha1<%s> is not a git commit object:%s ", sha1, obj)
 	}
-	// >recurese parent?
+	if commit.Parent != "" {
+		if err := recurseCommit(commit.Parent); err != nil {
+			return errgo.Notef(err, "recurseCommit(%s) commit Parent failed", commit.Parent)
+		}
+	}
+	return fetchTree(commit.Tree)
+}
 
-	// >recurse tree & store blobs
-	p = filepath.Join(ipfsRepoPath, "objects", commit.Tree[:2], commit.Tree[2:])
-	objF, err = ipfsShell.Cat(p)
+func fetchTree(sha1 string) error {
+	obj, err := fetchAndWriteObj(sha1)
 	if err != nil {
-		return errgo.Notef(err, "shell.Cat(%q) tree failed", p)
+		return errgo.Notef(err, "fetchAndWriteObj(%s) commit tree failed", sha1)
 	}
-	obj, err = git.DecodeObject(objF)
-	if err != nil {
-		return errgo.Notef(err, "git.DecodeObject(tree) failed")
-	}
-
-	tree, ok := obj.Tree()
+	entries, ok := obj.Tree()
 	if !ok {
-		return errgo.Newf("sha1 is not a git tree object")
+		return errgo.Newf("sha1<%s> is not a git tree object:%s ", sha1, obj)
 	}
+	for _, t := range entries {
+		obj, err := fetchAndWriteObj(t.SHA1Sum.String())
+		if err != nil {
+			return errgo.Notef(err, "fetchAndWriteObj(%s) commit tree failed", sha1)
+		}
+		if obj.Type != git.BlobT {
+			return errgo.Newf("sha1<%s> is not a git tree object:%s ", t.SHA1Sum.String(), obj)
+		}
+	}
+	return nil
+}
 
-	log.Warning("Trees!")
-	log.Warning(tree)
-	return errgo.Newf("TODO: unsupported - please see issue #1")
+// fetchAndWriteObj looks for the loose object under 'thisGitRepo' global git dir
+// and usses an io.TeeReader to write it to the local repo
+func fetchAndWriteObj(sha1 string) (*git.Object, error) {
+	p := filepath.Join(ipfsRepoPath, "objects", sha1[:2], sha1[2:])
+	objF, err := ipfsShell.Cat(p)
+	if err != nil {
+		return nil, errgo.Notef(err, "shell.Cat(%q) commit failed", p)
+	}
+	targetP := filepath.Join(thisGitRepo, "objects", sha1[:2], sha1[2:])
+	if err := os.MkdirAll(filepath.Join(thisGitRepo, "objects", sha1[:2]), 0700); err != nil {
+		return nil, errgo.Notef(err, "mkDirAll() failed")
+	}
+	targetObj, err := os.Create(targetP)
+	if err != nil {
+		return nil, errgo.Notef(err, "os.Create(%s) commit failed", targetP)
+	}
+	objF = io.TeeReader(objF, targetObj)
+	obj, err := git.DecodeObject(objF)
+	if err != nil {
+		return nil, errgo.Notef(err, "git.DecodeObject(commit) failed")
+	}
+	if err := targetObj.Close(); err != nil {
+		return nil, errgo.Notef(err, "target file close() failed")
+	}
+	return obj, nil
 }
 
 // "fetch $sha1 $ref" method 2 - unpacking packed objects

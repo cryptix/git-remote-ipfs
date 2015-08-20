@@ -19,6 +19,7 @@ import (
 var (
 	ipfsPath string
 	gitPath  string
+	travis   bool
 
 	ipfsDaemon *exec.Cmd
 )
@@ -49,7 +50,8 @@ func checkInstalled(t *testing.T) {
 	}
 
 	// setting IPFS_PATH on travis
-	if os.Getenv("IPFS_PATH") != "" {
+	if os.Getenv("TRAVIS") == "true" {
+		travis = true
 		if err := os.Setenv("IPFS_PATH", "/tmp/ipfs"); err != nil {
 			t.Fatal("setEnv(IPFS_PATH) failed")
 		}

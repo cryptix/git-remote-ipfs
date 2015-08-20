@@ -88,14 +88,14 @@ func main() {
 	}
 
 	// parse passed URL
-	repoUrl, err := url.Parse(u)
+	repoURL, err := url.Parse(u)
 	if err != nil {
 		log.Fatalf("url.Parse() failed: %s", err)
 	}
-	if repoUrl.Scheme != "ipfs" { // ipns will have a seperate helper(?)
+	if repoURL.Scheme != "ipfs" { // ipns will have a seperate helper(?)
 		log.Fatal("only ipfs schema is supported")
 	}
-	ipfsRepoPath = fmt.Sprintf("/ipfs/%s/%s", repoUrl.Host, repoUrl.Path)
+	ipfsRepoPath = fmt.Sprintf("/ipfs/%s/%s", repoURL.Host, repoURL.Path)
 
 	// interrupt / error handling
 	go func() {

@@ -66,25 +66,20 @@ func mkRandTmpDir(t *testing.T) string {
 	return ""
 }
 
-func TestClone(t *testing.T) {
+var expectedClone = map[string][]byte{
+	"testA":     []byte("\x94\x17\xd0\x11\x82+\x87]\xa7\"!\xc8ш\b\x9c\xbf\xce\xe8\x06"),
+	"hello.txt": []byte("⃚\xd2\xe4s\x86\xd3B\x03\x89X\xfb\xa9A\xfcx\xe3x\x0e"),
+	"notes":     []byte("2\xed\x91`K'(`\xec\x91\x1f¿J\xe61\xb7\x90\n\xa8"),
+}
 
+func TestClone(t *testing.T) {
 	// pinned by pinbot, prepared with 'git-ipfs-rehost https://github.com/cryptix/git-remote-ipfs-testcase'
-	var expected = map[string][]byte{
-		"testA":     []byte("\x94\x17\xd0\x11\x82+\x87]\xa7\"!\xc8ш\b\x9c\xbf\xce\xe8\x06"),
-		"hello.txt": []byte("⃚\xd2\xe4s\x86\xd3B\x03\x89X\xfb\xa9A\xfcx\xe3x\x0e"),
-		"notes":     []byte("2\xed\x91`K'(`\xec\x91\x1f¿J\xe61\xb7\x90\n\xa8"),
-	}
-	cloneAndCheckout(t, "ipfs://QmNRzJ6weMUs8SpeGApfY6XZEPcVbg1PTAARFZJ2C2McJq/git-remote-ipfs-testcase", expected)
+	cloneAndCheckout(t, "ipfs://QmNRzJ6weMUs8SpeGApfY6XZEPcVbg1PTAARFZJ2C2McJq/git-remote-ipfs-testcase", expectedClone)
 }
 
 func TestClone_unpacked(t *testing.T) {
 	// pinned by pinbot, prepared with 'git-ipfs-rehost --unpack https://github.com/cryptix/git-remote-ipfs-testcase unpackedTest'
-	var expected = map[string][]byte{
-		"testA":     []byte("\x94\x17\xd0\x11\x82+\x87]\xa7\"!\xc8ш\b\x9c\xbf\xce\xe8\x06"),
-		"hello.txt": []byte("⃚\xd2\xe4s\x86\xd3B\x03\x89X\xfb\xa9A\xfcx\xe3x\x0e"),
-		"notes":     []byte("2\xed\x91`K'(`\xec\x91\x1f¿J\xe61\xb7\x90\n\xa8"),
-	}
-	cloneAndCheckout(t, "ipfs://QmYFpZJs82hLTyEpwkzVpaXGUabVVwiT8yrd6TK81XnoGB/unpackedTest", expected)
+	cloneAndCheckout(t, "ipfs://QmYFpZJs82hLTyEpwkzVpaXGUabVVwiT8yrd6TK81XnoGB/unpackedTest", expectedClone)
 }
 
 func cloneAndCheckout(t *testing.T, repo string, expected map[string][]byte) {

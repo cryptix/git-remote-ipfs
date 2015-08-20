@@ -62,7 +62,7 @@ func fetchTree(sha1 string) error {
 // and usses an io.TeeReader to write it to the local repo
 func fetchAndWriteObj(sha1 string) (*git.Object, error) {
 	p := filepath.Join(ipfsRepoPath, "objects", sha1[:2], sha1[2:])
-	objF, err := ipfsShell.Cat(p)
+	ipfsCat, err := ipfsShell.Cat(p)
 	if err != nil {
 		return nil, errgo.Notef(err, "shell.Cat() commit failed")
 	}
@@ -74,14 +74,22 @@ func fetchAndWriteObj(sha1 string) (*git.Object, error) {
 	if err != nil {
 		return nil, errgo.Notef(err, "os.Create(%s) commit failed", targetP)
 	}
-	objF = io.TeeReader(objF, targetObj)
-	obj, err := git.DecodeObject(objF)
+	obj, err := git.DecodeObject(io.TeeReader(ipfsCat, targetObj))
 	if err != nil {
 		return nil, errgo.Notef(err, "git.DecodeObject(commit) failed")
 	}
+
+	if err := ipfsCat.Close(); err != nil {
+		if errRm := os.Remove(targetObj.Name()); errRm != nil {
+			return nil, errgo.WithCausef(errRm, err, "os.Remove(targetObj) failed while closing ipfs cat")
+		}
+		return nil, errgo.Notef(err, "closing ipfs cat failed")
+	}
+
 	if err := targetObj.Close(); err != nil {
 		return nil, errgo.Notef(err, "target file close() failed")
 	}
+
 	return obj, nil
 }
 

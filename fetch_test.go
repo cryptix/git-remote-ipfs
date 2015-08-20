@@ -30,9 +30,7 @@ func init() {
 func checkInstalled(t *testing.T) {
 	var err error
 	gitPath, err = exec.LookPath("git")
-	if err != nil {
-		t.Fatal("git is not installed")
-	}
+	checkFatal(t, err)
 	_, err = exec.LookPath("git-remote-ipfs")
 	if err != nil {
 		t.Log("git-remote-ipfs is not installed")
@@ -47,17 +45,13 @@ func checkInstalled(t *testing.T) {
 func mkRandTmpDir(t *testing.T) string {
 	var buf bytes.Buffer
 	for i := 0; i < 10; i++ {
-		if err := random.WriteRandomBytes(20, &buf); err != nil {
-			t.Fatalf("get random str: %s", err)
-		}
+		checkFatal(t, random.WriteRandomBytes(20, &buf))
 		randStr := fmt.Sprintf("git-remote-ipfs-test-%x", buf.String())
 		tmpDir := filepath.Join("/", os.TempDir(), randStr)
 		_, err := os.Stat(tmpDir)
 		if os.IsNotExist(err) {
-			if err := os.MkdirAll(tmpDir, 0700); err != nil {
-				t.Fatalf("mkdirAll(%q): %s", tmpDir, err)
-			}
-			t.Logf("dbg: created %s", tmpDir)
+			checkFatal(t, os.MkdirAll(tmpDir, 0700))
+			t.Logf("tmpDir created: %s", tmpDir)
 			return tmpDir
 		}
 		buf.Reset()
@@ -74,18 +68,18 @@ var expectedClone = map[string][]byte{
 
 func TestClone(t *testing.T) {
 	// pinned by pinbot, prepared with 'git-ipfs-rehost https://github.com/cryptix/git-remote-ipfs-testcase'
-	cloneAndCheckout(t, "ipfs://QmNRzJ6weMUs8SpeGApfY6XZEPcVbg1PTAARFZJ2C2McJq/git-remote-ipfs-testcase", expectedClone)
+	rmDir(t, cloneAndCheckout(t, "ipfs://QmNRzJ6weMUs8SpeGApfY6XZEPcVbg1PTAARFZJ2C2McJq/git-remote-ipfs-testcase", expectedClone))
 }
 
 func TestClone_unpacked(t *testing.T) {
 	// pinned by pinbot, prepared with 'git-ipfs-rehost --unpack https://github.com/cryptix/git-remote-ipfs-testcase unpackedTest'
-	cloneAndCheckout(t, "ipfs://QmYFpZJs82hLTyEpwkzVpaXGUabVVwiT8yrd6TK81XnoGB/unpackedTest", expectedClone)
+	rmDir(t, cloneAndCheckout(t, "ipfs://QmYFpZJs82hLTyEpwkzVpaXGUabVVwiT8yrd6TK81XnoGB/unpackedTest", expectedClone))
 }
 
-func cloneAndCheckout(t *testing.T, repo string, expected map[string][]byte) {
+func cloneAndCheckout(t *testing.T, repo string, expected map[string][]byte) (tmpDir string) {
 	checkInstalled(t)
 
-	tmpDir := mkRandTmpDir(t)
+	tmpDir = mkRandTmpDir(t)
 
 	var buf bytes.Buffer
 	cloneCmd := exec.Command(gitPath, "clone", repo, tmpDir)
@@ -99,22 +93,23 @@ func cloneAndCheckout(t *testing.T, repo string, expected map[string][]byte) {
 
 	hashMap(t, tmpDir, expected)
 
-	if err := os.RemoveAll(tmpDir); err != nil { // cleanup tmpDir
-		t.Error(err)
-	}
+	return tmpDir
 }
 
+func rmDir(t *testing.T, dir string) {
+	if err := os.RemoveAll(dir); err != nil { // cleanup tmpDir
+		t.Fatal(err)
+	}
+}
 func hashMap(t *testing.T, dir string, files map[string][]byte) {
 	for fname, want := range files {
 		f, err := os.Open(filepath.Join(dir, fname))
-		if err != nil {
-			t.Fatalf("hashMap open err: %s", err)
-		}
+		checkFatal(t, err)
 		h := sha1.New()
 
-		if _, err := io.Copy(h, f); err != nil {
-			t.Fatalf("hashMap copy err: %s", err)
-		}
+		_, err = io.Copy(h, f)
+		checkFatal(t, err)
+
 		got := h.Sum(nil)
 		if bytes.Compare(want, got) != 0 {
 			t.Errorf("hashMap: compare of %s failed\nWant: %q\nGot:  %q", fname, want, got)

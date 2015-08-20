@@ -185,7 +185,7 @@ func speakGit(r io.Reader, w io.Writer) error {
 				fmt.Fprintln(w, "")
 				continue
 			}
-			log.WithFields(f).WithField("err", err).Warning("fetchLooseObject failed, trying packed...")
+			log.WithFields(f).WithField("err", err).Debug("fetchLooseObject failed, trying packed...")
 			err = fetchPackedObject(fetchSplit[1])
 			if err != nil {
 				return errgo.Notef(err, "fetchPackedObject() failed")

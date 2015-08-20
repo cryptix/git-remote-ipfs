@@ -1,6 +1,4 @@
-# git-remote-ipfs
-
-[![Build Status](https://travis-ci.org/cryptix/git-remote-ipfs.svg?branch=master)](https://travis-ci.org/cryptix/git-remote-ipfs)
+# git-remote-ipfs [![Build Status](https://travis-ci.org/cryptix/git-remote-ipfs.svg?branch=master)](https://travis-ci.org/cryptix/git-remote-ipfs)
 
 See [![GoDoc](https://godoc.org/github.com/cryptix/git-remote-ipfs?status.svg)](https://godoc.org/github.com/cryptix/git-remote-ipfs) for usage.
 

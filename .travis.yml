@@ -12,5 +12,4 @@ before_install:
 - docker ps -a
 
 install:
-  - go get github.com/ipfs/go-ipfs/cmd/ipfs
   - go get -t -v ./...

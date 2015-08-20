@@ -1,6 +1,6 @@
 # git-remote-ipfs
 
-[![wercker status](https://app.wercker.com/status/3749e6687bf42f3cfe6114fd8d3419c1/m "wercker status")](https://app.wercker.com/project/bykey/3749e6687bf42f3cfe6114fd8d3419c1)
+_WIP: trying to run tests on travis with docker ipfs daemon_
 
 See [![GoDoc](https://godoc.org/github.com/cryptix/git-remote-ipfs?status.svg)](https://godoc.org/github.com/cryptix/git-remote-ipfs) for usage.
 

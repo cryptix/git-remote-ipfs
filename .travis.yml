@@ -1,0 +1,14 @@
+sudo: required
+
+language: go
+
+services:
+  - docker
+
+before_install:
+- docker pull jbenet/ipfs:latest
+- docker run -v /var/opt/ipfs:/data/ipfs  -p 8080:8080 -p 4001:4001 -p 5001:5001 go-ipfs:latest
+- docker ps -a
+
+install:
+  - go get -t -v ./...

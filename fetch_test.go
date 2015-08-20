@@ -23,6 +23,7 @@ var (
 	ipfsDaemon *exec.Cmd
 )
 
+// rand strings
 func init() {
 	rand.Seed(time.Now().Unix())
 }
@@ -81,13 +82,13 @@ func mkRandTmpDir(t *testing.T) string {
 
 func TestClone(t *testing.T) {
 
-	// pinned by pinbot, prepared with 'git-ipfs-rehost https://github.com/cryptix/git-remote-ipfs-testcase unpackedTest'
+	// pinned by pinbot, prepared with 'git-ipfs-rehost https://github.com/cryptix/git-remote-ipfs-testcase'
 	const expected = `QmSS1VNgmPW8yFxYoHEUHDEEz8FYBucMqN8xY92Y9pGq26
 QmSKoJo4VSso89bhbiTnVsgC7jKyqdBcB5GYCozYFp7fNs
 QmaSPaHCETQmfLo7SigbaqsCHcZgivcWALMhWVnxEaNutj
 QmPiW5xxfhVA2YaVoqLXsbMvdLMuVBNL68NPL57aWCAV8X
 `
-	cloneAndCheckout(t, "ipfs://QmS5Vauz2G6DVP7NEetJBcHDUNPTRt34D6evNiwrp7Gmsk/git-remote-ipfs-testcase", expected)
+	cloneAndCheckout(t, "ipfs://QmNRzJ6weMUs8SpeGApfY6XZEPcVbg1PTAARFZJ2C2McJq/git-remote-ipfs-testcase", expected)
 }
 
 func TestClone_unpacked(t *testing.T) {
@@ -97,7 +98,7 @@ QmSKoJo4VSso89bhbiTnVsgC7jKyqdBcB5GYCozYFp7fNs
 QmaSPaHCETQmfLo7SigbaqsCHcZgivcWALMhWVnxEaNutj
 QmPiW5xxfhVA2YaVoqLXsbMvdLMuVBNL68NPL57aWCAV8X
 `
-	cloneAndCheckout(t, "ipfs://Qmax49BmkTVVQWxZNUP8MpCVPaRe2YAgdpKDTtzSoC3EGa/unpackedTest", expected)
+	cloneAndCheckout(t, "ipfs://QmYFpZJs82hLTyEpwkzVpaXGUabVVwiT8yrd6TK81XnoGB/unpackedTest", expected)
 }
 
 func cloneAndCheckout(t *testing.T, repo, expected string) {

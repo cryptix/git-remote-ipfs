@@ -48,12 +48,12 @@ func checkInstalled(t *testing.T) {
 		}
 	}
 
-	// check for daemon... maybe need to init ipfs
-	if os.Getenv("WERCKER_STEP_NAME") != "" {
+	// setting IPFS_PATH on travis
+	if os.Getenv("IPFS_PATH") != "" {
 		if err := os.Setenv("IPFS_PATH", "/tmp/ipfs"); err != nil {
 			t.Fatal("setEnv(IPFS_PATH) failed")
 		}
-		t.Log("wercker: IPFS_PATH set")
+		t.Log("travis: IPFS_PATH set")
 	}
 }
 
@@ -116,12 +116,12 @@ func cloneAndCheckout(t *testing.T, repo, expected string) {
 		t.Fatalf("git clone ipfs:// failed: %s", err)
 	}
 
-	// TODO(cryptix): maybe just use an md5 walker?
 	buf.Reset()
-	addCmd := exec.Command(ipfsPath, "add", "-q", "-r", tmpDir)
+	addCmd := exec.Command(ipfsPath, "add", "--quiet", "--only-hash", "--recursive", tmpDir)
 	addCmd.Stdout = &buf
+	addCmd.Stderr = &buf
 	if err := addCmd.Run(); err != nil {
-		t.Fatalf("ipfs add for comparison failed: %s", err)
+		t.Fatalf("ipfs add for comparison failed: %s\nArgs:%v\n%q", err, addCmd.Args, buf.String())
 	}
 
 	// compare cloned hashes against expected ones

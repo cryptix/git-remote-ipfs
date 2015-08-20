@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha1"
 	"fmt"
+	"io"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -11,17 +13,12 @@ import (
 	"time"
 
 	"github.com/jbenet/go-random"
-	"github.com/kylelemons/godebug/diff"
 )
 
 // Warning: these tests assume some networking capabilities... sorry
 
 var (
-	ipfsPath string
-	gitPath  string
-	travis   bool
-
-	ipfsDaemon *exec.Cmd
+	gitPath string
 )
 
 // rand strings
@@ -32,10 +29,6 @@ func init() {
 // checks for the needed tools
 func checkInstalled(t *testing.T) {
 	var err error
-	ipfsPath, err = exec.LookPath("ipfs")
-	if err != nil {
-		t.Fatal("ipfs is not installed")
-	}
 	gitPath, err = exec.LookPath("git")
 	if err != nil {
 		t.Fatal("git is not installed")
@@ -47,15 +40,6 @@ func checkInstalled(t *testing.T) {
 			t.Log(fmt.Sprintf("%q", string(out)))
 			t.Fatal("go install failed:", err)
 		}
-	}
-
-	// setting IPFS_PATH on travis
-	if os.Getenv("TRAVIS") == "true" {
-		travis = true
-		if err := os.Setenv("IPFS_PATH", "/tmp/ipfs"); err != nil {
-			t.Fatal("setEnv(IPFS_PATH) failed")
-		}
-		t.Log("travis: IPFS_PATH set")
 	}
 }
 
@@ -85,25 +69,25 @@ func mkRandTmpDir(t *testing.T) string {
 func TestClone(t *testing.T) {
 
 	// pinned by pinbot, prepared with 'git-ipfs-rehost https://github.com/cryptix/git-remote-ipfs-testcase'
-	const expected = `QmSS1VNgmPW8yFxYoHEUHDEEz8FYBucMqN8xY92Y9pGq26
-QmSKoJo4VSso89bhbiTnVsgC7jKyqdBcB5GYCozYFp7fNs
-QmaSPaHCETQmfLo7SigbaqsCHcZgivcWALMhWVnxEaNutj
-QmPiW5xxfhVA2YaVoqLXsbMvdLMuVBNL68NPL57aWCAV8X
-`
+	var expected = map[string][]byte{
+		"testA":     []byte("\x94\x17\xd0\x11\x82+\x87]\xa7\"!\xc8ш\b\x9c\xbf\xce\xe8\x06"),
+		"hello.txt": []byte("⃚\xd2\xe4s\x86\xd3B\x03\x89X\xfb\xa9A\xfcx\xe3x\x0e"),
+		"notes":     []byte("2\xed\x91`K'(`\xec\x91\x1f¿J\xe61\xb7\x90\n\xa8"),
+	}
 	cloneAndCheckout(t, "ipfs://QmNRzJ6weMUs8SpeGApfY6XZEPcVbg1PTAARFZJ2C2McJq/git-remote-ipfs-testcase", expected)
 }
 
 func TestClone_unpacked(t *testing.T) {
 	// pinned by pinbot, prepared with 'git-ipfs-rehost --unpack https://github.com/cryptix/git-remote-ipfs-testcase unpackedTest'
-	const expected = `QmSS1VNgmPW8yFxYoHEUHDEEz8FYBucMqN8xY92Y9pGq26
-QmSKoJo4VSso89bhbiTnVsgC7jKyqdBcB5GYCozYFp7fNs
-QmaSPaHCETQmfLo7SigbaqsCHcZgivcWALMhWVnxEaNutj
-QmPiW5xxfhVA2YaVoqLXsbMvdLMuVBNL68NPL57aWCAV8X
-`
+	var expected = map[string][]byte{
+		"testA":     []byte("\x94\x17\xd0\x11\x82+\x87]\xa7\"!\xc8ш\b\x9c\xbf\xce\xe8\x06"),
+		"hello.txt": []byte("⃚\xd2\xe4s\x86\xd3B\x03\x89X\xfb\xa9A\xfcx\xe3x\x0e"),
+		"notes":     []byte("2\xed\x91`K'(`\xec\x91\x1f¿J\xe61\xb7\x90\n\xa8"),
+	}
 	cloneAndCheckout(t, "ipfs://QmYFpZJs82hLTyEpwkzVpaXGUabVVwiT8yrd6TK81XnoGB/unpackedTest", expected)
 }
 
-func cloneAndCheckout(t *testing.T, repo, expected string) {
+func cloneAndCheckout(t *testing.T, repo string, expected map[string][]byte) {
 	checkInstalled(t)
 
 	tmpDir := mkRandTmpDir(t)
@@ -115,23 +99,31 @@ func cloneAndCheckout(t *testing.T, repo, expected string) {
 	err := cloneCmd.Run()
 	t.Log(buf.String())
 	if err != nil { // exit status 0?
-		t.Fatalf("git clone ipfs:// failed: %s", err)
+		t.Fatalf("git clone ipfs:// failed: %s\nOutput:%s", err, buf.String())
 	}
 
-	buf.Reset()
-	addCmd := exec.Command(ipfsPath, "add", "--quiet", "--only-hash", "--recursive", tmpDir)
-	addCmd.Stdout = &buf
-	addCmd.Stderr = &buf
-	if err := addCmd.Run(); err != nil {
-		t.Fatalf("ipfs add for comparison failed: %s\nArgs:%v\n%q", err, addCmd.Args, buf.String())
-	}
-
-	// compare cloned hashes against expected ones
-	if diff := diff.Diff(expected, buf.String()); diff != "" {
-		t.Fatal(diff)
-	}
+	hashMap(t, tmpDir, expected)
 
 	if err := os.RemoveAll(tmpDir); err != nil { // cleanup tmpDir
 		t.Error(err)
+	}
+}
+
+func hashMap(t *testing.T, dir string, files map[string][]byte) {
+	for fname, want := range files {
+		f, err := os.Open(filepath.Join(dir, fname))
+		if err != nil {
+			t.Fatalf("hashMap open err: %s", err)
+		}
+		h := sha1.New()
+
+		if _, err := io.Copy(h, f); err != nil {
+			t.Fatalf("hashMap copy err: %s", err)
+		}
+		got := h.Sum(nil)
+		if bytes.Compare(want, got) != 0 {
+			t.Errorf("hashMap: compare of %s failed\nWant: %q\nGot:  %q", fname, want, got)
+		}
+
 	}
 }

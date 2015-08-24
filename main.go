@@ -183,6 +183,7 @@ func speakGit(r io.Reader, w io.Writer) error {
 			if err != nil {
 				return err
 			}
+
 			// output
 			fmt.Fprintf(w, "%s HEAD\n", head)
 			for ref, hash := range ref2hash {
@@ -201,7 +202,7 @@ func speakGit(r io.Reader, w io.Writer) error {
 			}
 			err := fetchObject(fetchSplit[1])
 			if err == nil {
-				log.WithFields(f).Info("fetched loose")
+				log.WithFields(f).Debug("fetched loose")
 				fmt.Fprintln(w, "")
 				continue
 			}
@@ -210,7 +211,7 @@ func speakGit(r io.Reader, w io.Writer) error {
 			if err != nil {
 				return errgo.Notef(err, "fetchPackedObject() failed")
 			}
-			log.WithFields(f).Info("fetched packed")
+			log.WithFields(f).Debug("fetched packed")
 			fmt.Fprintln(w, "")
 
 		case text == "":

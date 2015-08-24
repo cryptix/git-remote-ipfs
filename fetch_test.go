@@ -31,14 +31,11 @@ func checkInstalled(t *testing.T) {
 	var err error
 	gitPath, err = exec.LookPath("git")
 	checkFatal(t, err)
+	out, err := exec.Command("go", "install", "github.com/cryptix/git-remote-ipfs").CombinedOutput()
+	t.Log(fmt.Sprintf("%q", string(out)))
+	checkFatal(t, err)
 	_, err = exec.LookPath("git-remote-ipfs")
-	if err != nil {
-		t.Log("git-remote-ipfs is not installed")
-		if out, err := exec.Command("go", "install", "github.com/cryptix/git-remote-ipfs").CombinedOutput(); err != nil {
-			t.Log(fmt.Sprintf("%q", string(out)))
-			t.Fatal("go install failed:", err)
-		}
-	}
+	checkFatal(t, err)
 }
 
 // oh well.. just some rand string

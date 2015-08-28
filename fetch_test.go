@@ -78,14 +78,12 @@ func cloneAndCheckout(t *testing.T, repo string, expected map[string][]byte) (tm
 
 	tmpDir = mkRandTmpDir(t)
 
-	var buf bytes.Buffer
 	cloneCmd := exec.Command(gitPath, "clone", repo, tmpDir)
-	cloneCmd.Stdout = &buf
-	cloneCmd.Stderr = &buf
-	err := cloneCmd.Run()
-	t.Log(buf.String())
-	if err != nil { // exit status 0?
-		t.Fatalf("git clone ipfs:// failed: %s\nOutput:%s", err, buf.String())
+	out, err := cloneCmd.CombinedOutput()
+	t.Logf("'git clone %s %s':\n%s", repo, tmpDir, out)
+	checkFatal(t, err)
+	if !cloneCmd.ProcessState.Success() {
+		t.Fatal("git clone failed")
 	}
 
 	hashMap(t, tmpDir, expected)

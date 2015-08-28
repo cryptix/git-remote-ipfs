@@ -178,12 +178,10 @@ func speakGit(r io.Reader, w io.Writer) error {
 				return err
 			}
 			//TODO: alternativly iterate over the refs directory like git-remote-dropbox
-
 			head, err := getHeadRef()
 			if err != nil {
 				return err
 			}
-
 			// output
 			fmt.Fprintf(w, "%s HEAD\n", head)
 			for ref, hash := range ref2hash {
@@ -192,43 +190,43 @@ func speakGit(r io.Reader, w io.Writer) error {
 			fmt.Fprintln(w, "")
 
 		case strings.HasPrefix(text, "fetch "):
-			fetchSplit := strings.Split(text, " ")
-			if len(fetchSplit) < 2 {
-				return errgo.Newf("malformed 'fetch' command. %q", text)
+			for scanner.Scan() {
+				fetchSplit := strings.Split(text, " ")
+				if len(fetchSplit) < 2 {
+					return errgo.Newf("malformed 'fetch' command. %q", text)
+				}
+				f := map[string]interface{}{
+					"sha1": fetchSplit[1],
+					"name": fetchSplit[2],
+				}
+				err := fetchObject(fetchSplit[1])
+				if err == nil {
+					log.WithFields(f).Debug("fetched loose")
+					fmt.Fprintln(w, "")
+					continue
+				}
+				log.WithFields(f).WithField("err", err).Debug("fetchLooseObject failed, trying packed...")
+				err = fetchPackedObject(fetchSplit[1])
+				if err != nil {
+					return errgo.Notef(err, "fetchPackedObject() failed")
+				}
+				log.WithFields(f).Debug("fetched packed")
+				text = scanner.Text()
+				if text == "" {
+					break
+				}
 			}
-			f := map[string]interface{}{
-				"sha1": fetchSplit[1],
-				"name": fetchSplit[2],
-			}
-			err := fetchObject(fetchSplit[1])
-			if err == nil {
-				log.WithFields(f).Debug("fetched loose")
-				fmt.Fprintln(w, "")
-				continue
-			}
-			log.WithFields(f).WithField("err", err).Debug("fetchLooseObject failed, trying packed...")
-			err = fetchPackedObject(fetchSplit[1])
-			if err != nil {
-				return errgo.Notef(err, "fetchPackedObject() failed")
-			}
-			log.WithFields(f).Debug("fetched packed")
 			fmt.Fprintln(w, "")
 
 		case text == "":
-			// TODO(cryptix): count fetches and track them
-			log.Debug("got empty line (end of fetch batch?)")
-			fmt.Fprintln(w, "")
-			return nil
+			break
 
 		default:
 			return errgo.Newf("Error: default git speak: %q", text)
 		}
 	}
-
 	if err := scanner.Err(); err != nil {
 		return errgo.Notef(err, "scanner.Err()")
 	}
-
-	log.Info("speakGit: exited read loop")
 	return nil
 }

@@ -57,11 +57,12 @@ func usage() {
 var (
 	ref2hash = make(map[string]string)
 
-	ipfsShell    = shell.NewShell("localhost:5001")
-	ipfsRepoPath string
-	thisGitRepo  string
-	errc         chan<- error
-	log          = logging.Logger("git-remote-ipfs")
+	ipfsShell     = shell.NewShell("localhost:5001")
+	ipfsRepoPath  string
+	thisGitRepo   string
+	thisGitRemote string
+	errc          chan<- error
+	log           = logging.Logger("git-remote-ipfs")
 )
 
 func main() {
@@ -84,9 +85,10 @@ func main() {
 	v := len(os.Args[1:])
 	switch v {
 	case 2:
-		log.Debug("repo:", os.Args[1])
-		log.Debug("url:", os.Args[2])
+		thisGitRemote = os.Args[1]
 		u = os.Args[2]
+		log.Debug("remote:", thisGitRemote)
+		log.Debug("url:", u)
 	default:
 		log.Fatalf("usage: unknown # of args: %d\n%v", v, os.Args[1:])
 	}

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -69,47 +70,49 @@ func push(src, dst string) error {
 			return errgo.Notef(err, "patchLink failed")
 		}
 		root = newRoot
-		log.WithField("newRoot", newRoot).WithField("sha1", sha1).Error("updated object")
+		log.WithField("newRoot", newRoot).WithField("sha1", sha1).Debug("updated object")
 	}
 	srcSha1, err := gitRefHash(src)
 	if err != nil {
 		return errgo.Notef(err, "gitRefHash(%s) failed", src)
 	}
-
 	h, ok := ref2hash[dst]
 	if !ok {
 		return errgo.Newf("writeRef: ref2hash entry missing: %s", dst)
 	}
 	isFF := gitIsAncestor(h, srcSha1)
 	if isFF != nil && !force {
-		// print "non-fast-forward" to git
+		// TODO: print "non-fast-forward" to git
 		return fmt.Errorf("non-fast-forward")
 	}
-
 	mhash, err := ipfsShell.Add(bytes.NewBufferString(fmt.Sprintf("%s\n", srcSha1)))
 	if err != nil {
 		return errgo.Notef(err, "shell.Add(%s) failed", srcSha1)
 	}
-
 	root, err = ipfsShell.PatchLink(root, dst, mhash, true)
 	if err != nil {
-		// print "fetch first" to git
+		// TODO:print "fetch first" to git
 		err = errgo.Notef(err, "patchLink(%s) failed", ipfsRepoPath)
 		log.WithField("err", err).Error("shell.PatchLink failed")
 		return fmt.Errorf("fetch first")
 	}
-
-	log.WithField("newRoot", root).WithField("dst", dst).WithField("hash", srcSha1).Error("updated ref")
-
+	log.WithField("newRoot", root).WithField("dst", dst).WithField("hash", srcSha1).Debug("updated ref")
 	// invalidate info/refs and HEAD(?)
-	// TODO: unclean: need to put other revs, too
-	root, err = ipfsShell.Patch(root, "rm-link", "info/refs")
-	if err != nil {
+	// TODO: unclean: need to put other revs, too make a soft git update-server-info maybe
+	noInfoRefsHash, err := ipfsShell.Patch(root, "rm-link", "info/refs")
+	if err == nil {
+		log.WithField("newRoot", noInfoRefsHash).Info("rm-link'ed info/refs")
+		root = noInfoRefsHash
+	} else {
 		// todo shell.IsNotExists() ?
 		log.WithField("err", err).Warning("shell.Patch rm-link info/refs failed - might be okay... TODO")
 	}
-
-	log.WithField("newRoot", root).Error("rm-link'ed info/refs")
-
+	newRemoteURL := fmt.Sprintf("ipfs://%s", root)
+	setUrlCmd := exec.Command("git", "remote", "set-url", thisGitRemote, newRemoteURL)
+	out, err := setUrlCmd.CombinedOutput()
+	if err != nil {
+		return errgo.Notef(err, "updating remote url failed\nOut:%s", string(out))
+	}
+	log.Info("remote updated - new address:", newRemoteURL)
 	return nil
 }

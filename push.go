@@ -63,7 +63,6 @@ func push(src, dst string) error {
 	if err != nil {
 		return errgo.Notef(err, "resolvePath(%s) failed", ipfsRepoPath)
 	}
-	log.WithField("map", objHash2multi).Warn("added objects")
 	for sha1, mhash := range objHash2multi {
 		newRoot, err := ipfsShell.PatchLink(root, filepath.Join("objects", sha1[:2], sha1[2:]), mhash, true)
 		if err != nil {
@@ -101,7 +100,7 @@ func push(src, dst string) error {
 	// TODO: unclean: need to put other revs, too make a soft git update-server-info maybe
 	noInfoRefsHash, err := ipfsShell.Patch(root, "rm-link", "info/refs")
 	if err == nil {
-		log.WithField("newRoot", noInfoRefsHash).Info("rm-link'ed info/refs")
+		log.WithField("newRoot", noInfoRefsHash).Debug("rm-link'ed info/refs")
 		root = noInfoRefsHash
 	} else {
 		// todo shell.IsNotExists() ?

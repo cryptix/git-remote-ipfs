@@ -40,10 +40,10 @@ func checkInstalled(t *testing.T) {
 	checkFatal(t, err)
 }
 
-var expectedClone = map[string][]byte{
-	"testA":     []byte("\x94\x17\xd0\x11\x82+\x87]\xa7\"!\xc8ш\b\x9c\xbf\xce\xe8\x06"),
-	"hello.txt": []byte("⃚\xd2\xe4s\x86\xd3B\x03\x89X\xfb\xa9A\xfcx\xe3x\x0e"),
-	"notes":     []byte("2\xed\x91`K'(`\xec\x91\x1f¿J\xe61\xb7\x90\n\xa8"),
+var expectedClone = map[string]string{
+	"testA":     "9417d011822b875da72221c8d188089cbfcee806",
+	"hello.txt": "e2839ad2e47386d342038958fba941fc78e3780e",
+	"notes":     "32ed91604b272860ec911fc2bf4ae631b7900aa8",
 }
 
 func TestClone(t *testing.T) {
@@ -56,24 +56,11 @@ func TestClone_unpacked(t *testing.T) {
 	rmDir(t, cloneAndCheckout(t, "ipfs://QmYFpZJs82hLTyEpwkzVpaXGUabVVwiT8yrd6TK81XnoGB/unpackedTest", expectedClone))
 }
 
-func TestClone_pushed(t *testing.T) {
-	// TODO: this should run back2back with the push test
-	var expectedClone = map[string][]byte{
-		"testA":     []byte("\x94\x17\xd0\x11\x82+\x87]\xa7\"!\xc8ш\b\x9c\xbf\xce\xe8\x06"),
-		"hello.txt": []byte("⃚\xd2\xe4s\x86\xd3B\x03\x89X\xfb\xa9A\xfcx\xe3x\x0e"),
-		"notes":     []byte("2\xed\x91`K'(`\xec\x91\x1f¿J\xe61\xb7\x90\n\xa8"),
-		//	"newFile":   "cc7aae22f2d4301b6006e5f26e28b63579b61072",
-	}
-	rmDir(t, cloneAndCheckout(t, "ipfs://QmdFDjBUdj6xAuJxtUCqqMqTQpG5FnM167w3YS3AfZAAs2", expectedClone))
-}
-
 // helpers
 
-func cloneAndCheckout(t *testing.T, repo string, expected map[string][]byte) (tmpDir string) {
+func cloneAndCheckout(t *testing.T, repo string, expected map[string]string) (tmpDir string) {
 	checkInstalled(t)
-
 	tmpDir = mkRandTmpDir(t)
-
 	cloneCmd := exec.Command(gitPath, "clone", repo, tmpDir)
 	out, err := cloneCmd.CombinedOutput()
 	t.Logf("'git clone %s %s':\n%s", repo, tmpDir, out)
@@ -81,9 +68,7 @@ func cloneAndCheckout(t *testing.T, repo string, expected map[string][]byte) (tm
 	if !cloneCmd.ProcessState.Success() {
 		t.Fatal("git clone failed")
 	}
-
 	hashMap(t, tmpDir, expected)
-
 	return tmpDir
 }
 
@@ -112,24 +97,18 @@ func mkRandTmpDir(t *testing.T) string {
 	return ""
 }
 
-func rmDir(t *testing.T, dir string) {
-	if err := os.RemoveAll(dir); err != nil { // cleanup tmpDir
-		t.Fatal(err)
-	}
-}
-func hashMap(t *testing.T, dir string, files map[string][]byte) {
+func rmDir(t *testing.T, dir string) { checkFatal(t, os.RemoveAll(dir)) }
+
+func hashMap(t *testing.T, dir string, files map[string]string) {
 	for fname, want := range files {
 		f, err := os.Open(filepath.Join(dir, fname))
 		checkFatal(t, err)
 		h := sha1.New()
-
 		_, err = io.Copy(h, f)
 		checkFatal(t, err)
-
 		got := h.Sum(nil)
-		if bytes.Compare(want, got) != 0 {
-			t.Errorf("hashMap: compare of %s failed\nWant: %x\nGot:  %x", fname, want, got)
+		if want != fmt.Sprintf("%x", got) {
+			t.Errorf("hashMap: compare of %s failed\nWant: %s\nGot:  %x", fname, want, got)
 		}
-
 	}
 }

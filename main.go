@@ -144,12 +144,15 @@ func speakGit(r io.Reader, w io.Writer) error {
 				}
 			} else { // alternativly iterate over the refs directory like git-remote-dropbox
 				if forPush {
-					log.Error("for-push: should be able to push to non existant.. TODO #2")
+					log.Info("for-push: should be able to push to non existant.. TODO #2")
 				}
-				log.WithField("err", err).Warning("didn't find info/refs in repo, falling back...")
+				log.WithField("err", err).Debug("didn't find info/refs in repo, falling back...")
 				if err = listIterateRefs(forPush); err != nil {
 					return err
 				}
+			}
+			if len(ref2hash) == 0 {
+				return errgo.New("did not find _any_ refs...")
 			}
 			// output
 			for ref, hash := range ref2hash {

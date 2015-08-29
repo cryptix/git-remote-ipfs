@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestCloneAndAdd(t *testing.T) {
+func TestPush(t *testing.T) {
 	// $ git clone ipfs://$hash/repo.git $tmpDir
 	tmpDir := cloneAndCheckout(t, "ipfs://QmNRzJ6weMUs8SpeGApfY6XZEPcVbg1PTAARFZJ2C2McJq/git-remote-ipfs-testcase", expectedClone)
 

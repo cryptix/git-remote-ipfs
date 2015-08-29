@@ -173,8 +173,11 @@ func speakGit(r io.Reader, w io.Writer) error {
 
 		case strings.HasPrefix(text, "list"):
 			log.Debug("got list line")
-
-			if err := getRefs(false); err != nil {
+			forPush := strings.Contains(text, "for-push")
+			if err := getRefs(forPush); err != nil {
+				if forPush {
+					log.Error("for-push: should be able to push to non existant.. TODO #2")
+				}
 				return err
 			}
 			//TODO: alternativly iterate over the refs directory like git-remote-dropbox
@@ -211,6 +214,38 @@ func speakGit(r io.Reader, w io.Writer) error {
 					return errgo.Notef(err, "fetchPackedObject() failed")
 				}
 				log.WithFields(f).Debug("fetched packed")
+				text = scanner.Text()
+				if text == "" {
+					break
+				}
+			}
+			fmt.Fprintln(w, "")
+
+		case strings.HasPrefix(text, "push"):
+			for scanner.Scan() {
+				pushSplit := strings.Split(text, " ")
+				if len(pushSplit) < 2 {
+					return errgo.Newf("malformed 'push' command. %q", text)
+				}
+				srcDstSplit := strings.Split(pushSplit[1], ":")
+				if len(srcDstSplit) < 2 {
+					return errgo.Newf("malformed 'push' command. %q", text)
+				}
+				src, dst := srcDstSplit[0], srcDstSplit[1]
+				f := map[string]interface{}{
+					"src": src,
+					"dst": dst,
+				}
+				log.WithFields(f).Debug("got push")
+				if src == "" {
+					fmt.Fprintf(w, "error %s %s\n", dst, "delete remote dst: not supported yet - please open an issue on github")
+				} else {
+					if err := push(src, dst); err != nil {
+						fmt.Fprintf(w, "error %s %s\n", dst, err)
+						return err
+					}
+					fmt.Fprintln(w, "ok", dst)
+				}
 				text = scanner.Text()
 				if text == "" {
 					break

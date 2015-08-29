@@ -5,8 +5,8 @@ import (
 	"os"
 	"strconv"
 
+	random "github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/github.com/jbenet/go-random"
 	"github.com/dustin/go-humanize"
-	random "github.com/jbenet/go-random"
 )
 
 func main() {

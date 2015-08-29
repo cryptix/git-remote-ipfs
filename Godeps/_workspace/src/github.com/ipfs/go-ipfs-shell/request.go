@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	files "github.com/whyrusleeping/go-multipart-files"
+	files "github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/github.com/whyrusleeping/go-multipart-files"
 )
 
 type Request struct {

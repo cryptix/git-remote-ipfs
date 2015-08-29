@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"gopkg.in/errgo.v1"
+	"github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/gopkg.in/errgo.v1"
 )
 
 // return the objects reachable from ref excluding the objects reachable from exclude

@@ -7,8 +7,8 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/Sirupsen/logrus"
-	"gopkg.in/errgo.v1"
+	"github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/github.com/Sirupsen/logrus"
+	"github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/gopkg.in/errgo.v1"
 )
 
 var closeChan chan<- os.Signal

@@ -38,10 +38,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cryptix/go/debug"
-	"github.com/cryptix/go/logging"
-	"github.com/ipfs/go-ipfs-shell"
-	"gopkg.in/errgo.v1"
+	"github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/github.com/cryptix/go/debug"
+	"github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/github.com/cryptix/go/logging"
+	"github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/github.com/ipfs/go-ipfs-shell"
+	"github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/gopkg.in/errgo.v1"
 )
 
 const usageMsg = `usage git-remote-ipfs <repository> [<URL>]

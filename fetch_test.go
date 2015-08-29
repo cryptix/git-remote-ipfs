@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jbenet/go-random"
+	"github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/github.com/jbenet/go-random"
 )
 
 // Warning: these tests assume some networking capabilities... sorry

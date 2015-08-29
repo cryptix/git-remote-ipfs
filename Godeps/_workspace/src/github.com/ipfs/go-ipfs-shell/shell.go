@@ -11,8 +11,8 @@ import (
 	gohttp "net/http"
 	"os"
 
-	files "github.com/whyrusleeping/go-multipart-files"
-	tar "github.com/whyrusleeping/tar-utils"
+	files "github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/github.com/whyrusleeping/go-multipart-files"
+	tar "github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/github.com/whyrusleeping/tar-utils"
 )
 
 type Shell struct {

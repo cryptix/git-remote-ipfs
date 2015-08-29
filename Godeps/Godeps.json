@@ -1,6 +1,9 @@
 {
 	"ImportPath": "github.com/cryptix/git-remote-ipfs",
 	"GoVersion": "go1.5",
+	"Packages": [
+		"github.com/cryptix/git-remote-ipfs"
+	],
 	"Deps": [
 		{
 			"ImportPath": "github.com/Sirupsen/logrus",

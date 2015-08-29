@@ -12,7 +12,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"gopkg.in/errgo.v1"
+	"github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/gopkg.in/errgo.v1"
 )
 
 var (

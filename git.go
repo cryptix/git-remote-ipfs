@@ -80,7 +80,7 @@ func gitCatKind(sha1 string) (string, error) {
 	catFile := exec.Command("git", "cat-file", "-t", sha1)
 	catFile.Dir = thisGitRepo // GIT_DIR
 	out, err := catFile.CombinedOutput()
-	return string(out), err
+	return strings.TrimSpace(string(out)), err
 }
 
 func gitCatSize(sha1 string) (int64, error) {

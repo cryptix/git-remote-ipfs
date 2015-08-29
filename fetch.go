@@ -102,13 +102,13 @@ func fetchAndWriteObj(sha1 string) (*git.Object, error) {
 func fetchPackedObject(sha1 string) error {
 	// search for all index files
 	packPath := filepath.Join(ipfsRepoPath, "objects", "pack")
-	lsobj, err := ipfsShell.FileList(packPath)
+	links, err := ipfsShell.List(packPath)
 	if err != nil {
 		return errgo.Notef(err, "shell FileList(%q) failed", packPath)
 	}
 	var indexes []string
-	for _, lnk := range lsobj.Links {
-		if lnk.Type == "File" && strings.HasSuffix(lnk.Name, ".idx") {
+	for _, lnk := range links {
+		if lnk.Type == 2 && strings.HasSuffix(lnk.Name, ".idx") {
 			indexes = append(indexes, filepath.Join(packPath, lnk.Name))
 		}
 	}

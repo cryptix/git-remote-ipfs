@@ -69,7 +69,7 @@ func push(src, dst string) error {
 			return errgo.Notef(err, "patchLink failed")
 		}
 		root = newRoot
-		log.WithField("newRoot", newRoot).Error("updated object")
+		log.WithField("newRoot", newRoot).WithField("sha1", sha1).Error("updated object")
 	}
 	srcSha1, err := gitRefHash(src)
 	if err != nil {
@@ -100,6 +100,16 @@ func push(src, dst string) error {
 	}
 
 	log.WithField("newRoot", root).WithField("dst", dst).WithField("hash", srcSha1).Error("updated ref")
+
+	// invalidate info/refs and HEAD(?)
+	// TODO: unclean: need to put other revs, too
+	root, err = ipfsShell.Patch(root, "rm-link", "info/refs")
+	if err != nil {
+		// todo shell.IsNotExists() ?
+		log.WithField("err", err).Warning("shell.Patch rm-link info/refs failed - might be okay... TODO")
+	}
+
+	log.WithField("newRoot", root).Error("rm-link'ed info/refs")
 
 	return nil
 }

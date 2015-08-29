@@ -23,6 +23,8 @@ https://github.com/whyrusleeping/git-ipfs-rehost
 
 https://git-scm.com/docs/gitremote-helpers
 
+https://git-scm.com/docs/gitrepository-layout
+
 https://git-scm.com/book/en/v2/Git-Internals-Transfer-Protocols
 */
 package main
@@ -129,23 +131,33 @@ func speakGit(r io.Reader, w io.Writer) error {
 
 		case strings.HasPrefix(text, "list"):
 			log.Debug("got list line")
-			forPush := strings.Contains(text, "for-push")
-			if err := listInfoRefs(forPush); err != nil {
+			var (
+				forPush = strings.Contains(text, "for-push")
+				err     error
+				head    string
+			)
+			if err = listInfoRefs(forPush); err == nil { // try .git/info/refs first
+				if head, err = listHeadRef(); err != nil {
+					return err
+				}
+			} else { // alternativly iterate over the refs directory like git-remote-dropbox
 				if forPush {
 					log.Error("for-push: should be able to push to non existant.. TODO #2")
 				}
-				return err
-			}
-			//TODO: alternativly iterate over the refs directory like git-remote-dropbox
-			head, err := listHeadRef()
-			if err != nil {
-				return err
+				log.WithField("err", err).Warning("didn't find info/refs in repo, falling back...")
+				if err = listIterateRefs(forPush); err != nil {
+					return err
+				}
 			}
 			// output
-			fmt.Fprintf(w, "%s HEAD\n", head)
 			for ref, hash := range ref2hash {
+				if head == "" && strings.HasSuffix(ref, "master") {
+					// guessing head if it isnt set
+					head = hash
+				}
 				fmt.Fprintf(w, "%s %s\n", hash, ref)
 			}
+			fmt.Fprintf(w, "%s HEAD\n", head)
 			fmt.Fprintln(w, "")
 
 		case strings.HasPrefix(text, "fetch "):

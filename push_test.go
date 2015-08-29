@@ -35,9 +35,3 @@ func TestPush(t *testing.T) {
 
 	rmDir(t, tmpDir)
 }
-
-func checkFatal(t *testing.T, err error) {
-	if err != nil {
-		t.Fatal(err)
-	}
-}

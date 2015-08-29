@@ -1,0 +1,48 @@
+{
+	"ImportPath": "github.com/cryptix/git-remote-ipfs",
+	"GoVersion": "go1.5",
+	"Deps": [
+		{
+			"ImportPath": "github.com/Sirupsen/logrus",
+			"Comment": "v0.8.6-11-g44512f0",
+			"Rev": "44512f0d08f7f81a75f5b04a2cb6d81ed25431ca"
+		},
+		{
+			"ImportPath": "github.com/codegangsta/negroni",
+			"Comment": "v0.1-70-gc7477ad",
+			"Rev": "c7477ad8e330bef55bf1ebe300cf8aa67c492d1b"
+		},
+		{
+			"ImportPath": "github.com/cryptix/exp/git",
+			"Rev": "dfca2baabd5f157c56aa8b44a988e2c82b7e350e"
+		},
+		{
+			"ImportPath": "github.com/cryptix/go/debug",
+			"Rev": "7c745070561e27d00a07785449717e355191315f"
+		},
+		{
+			"ImportPath": "github.com/cryptix/go/logging",
+			"Rev": "7c745070561e27d00a07785449717e355191315f"
+		},
+		{
+			"ImportPath": "github.com/ipfs/go-ipfs-shell",
+			"Rev": "4a96a9bd8f7b7a867c3df791248725020dfba76d"
+		},
+		{
+			"ImportPath": "github.com/jbenet/go-random",
+			"Rev": "cd535bd25356746b9b1e824871dda7da932460e2"
+		},
+		{
+			"ImportPath": "github.com/whyrusleeping/go-multipart-files",
+			"Rev": "260b7d919eefb664542f386f93e18d17f90e4a1e"
+		},
+		{
+			"ImportPath": "github.com/whyrusleeping/tar-utils",
+			"Rev": "e8a5890cfc9d59a203361237581468780d945b6e"
+		},
+		{
+			"ImportPath": "gopkg.in/errgo.v1",
+			"Rev": "15098963088579c1cd9eb1a7da285831e548390b"
+		}
+	]
+}

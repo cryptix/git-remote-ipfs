@@ -29,10 +29,8 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -113,48 +111,6 @@ func main() {
 	}
 }
 
-func getRefs(forPush bool) error {
-	refsCat, err := ipfsShell.Cat(filepath.Join(ipfsRepoPath, "info", "refs"))
-	if err != nil {
-		return errgo.Notef(err, "failed to cat info/refs from %s", ipfsRepoPath)
-	}
-	s := bufio.NewScanner(refsCat)
-	for s.Scan() {
-		hashRef := strings.Split(s.Text(), "\t")
-		if len(hashRef) != 2 {
-			return errgo.Newf("processing info/refs: what is this: %v", hashRef)
-		}
-		ref2hash[hashRef[1]] = hashRef[0]
-		log.WithField("ref", hashRef[1]).WithField("sha1", hashRef[0]).Debug("got ref")
-	}
-	if err := s.Err(); err != nil {
-		return errgo.Notef(err, "ipfs.Cat(info/refs) scanner error")
-	}
-	return nil
-}
-
-func getHeadRef() (string, error) {
-	headCat, err := ipfsShell.Cat(filepath.Join(ipfsRepoPath, "HEAD"))
-	if err != nil {
-		return "", errgo.Notef(err, "failed to cat HEAD from %s", ipfsRepoPath)
-	}
-	head, err := ioutil.ReadAll(headCat)
-	if err != nil {
-		return "", errgo.Notef(err, "failed to readAll HEAD from %s", ipfsRepoPath)
-	}
-	if !bytes.HasPrefix(head, []byte("ref: ")) {
-		return "", errgo.Newf("illegal HEAD file from %s: %q", ipfsRepoPath, head)
-	}
-	headRef := string(bytes.TrimSpace(head[5:]))
-	headHash, ok := ref2hash[headRef]
-	if !ok {
-		// use first hash in map?..
-		return "", errgo.Newf("unknown HEAD reference %q", headRef)
-	}
-	log.WithField("ref", headRef).WithField("sha1", headHash).Debug("got HEAD ref")
-	return headHash, nil
-}
-
 // speakGit acts like a git-remote-helper
 // see this for more: https://www.kernel.org/pub/software/scm/git/docs/gitremote-helpers.html
 func speakGit(r io.Reader, w io.Writer) error {
@@ -174,14 +130,14 @@ func speakGit(r io.Reader, w io.Writer) error {
 		case strings.HasPrefix(text, "list"):
 			log.Debug("got list line")
 			forPush := strings.Contains(text, "for-push")
-			if err := getRefs(forPush); err != nil {
+			if err := listInfoRefs(forPush); err != nil {
 				if forPush {
 					log.Error("for-push: should be able to push to non existant.. TODO #2")
 				}
 				return err
 			}
 			//TODO: alternativly iterate over the refs directory like git-remote-dropbox
-			head, err := getHeadRef()
+			head, err := listHeadRef()
 			if err != nil {
 				return err
 			}

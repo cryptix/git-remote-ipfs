@@ -5,10 +5,9 @@ import (
 	"path"
 	"strings"
 
-	key "github.com/ipfs/go-ipfs/blocks/key"
-
-	b58 "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-base58"
-	mh "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-multihash"
+	key "github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/github.com/ipfs/go-ipfs/blocks/key"
+	b58 "github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/github.com/jbenet/go-base58"
+	mh "github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/github.com/jbenet/go-multihash"
 )
 
 // ErrBadPath is returned when a given path is incorrectly formatted
@@ -101,4 +100,14 @@ func ParseKeyToPath(txt string) (Path, error) {
 func (p *Path) IsValid() error {
 	_, err := ParsePath(p.String())
 	return err
+}
+
+// Paths after a protocol must contain at least one component
+var ErrNoComponents = errors.New(
+	"path must contain at least one component")
+
+// ErrNoLink is returned when a link is not found in a path
+type ErrNoLink struct {
+	Name string
+	Node mh.Multihash
 }

@@ -1,8 +1,8 @@
 {
 	"ImportPath": "github.com/cryptix/git-remote-ipfs",
-	"GoVersion": "go1.5",
+	"GoVersion": "go1.5.1",
 	"Packages": [
-		"github.com/cryptix/git-remote-ipfs"
+		"./..."
 	],
 	"Deps": [
 		{
@@ -32,8 +32,34 @@
 			"Rev": "4a96a9bd8f7b7a867c3df791248725020dfba76d"
 		},
 		{
+			"ImportPath": "github.com/ipfs/go-ipfs/blocks/key",
+			"Comment": "v0.3.8-47-g6801d3f",
+			"Rev": "6801d3f76848e02d01c7d8ebec03f691d9a0b789"
+		},
+		{
+			"ImportPath": "github.com/jbenet/go-base58",
+			"Rev": "6237cf65f3a6f7111cd8a42be3590df99a66bc7d"
+		},
+		{
+			"ImportPath": "github.com/jbenet/go-datastore",
+			"Rev": "751a1b4ad40b27c3f0993ba5e2bcf22ad941991b"
+		},
+		{
+			"ImportPath": "github.com/jbenet/go-multihash",
+			"Comment": "0.1.0-39-ge8d2374",
+			"Rev": "e8d2374934f16a971d1e94a864514a21ac74bf7f"
+		},
+		{
 			"ImportPath": "github.com/jbenet/go-random",
 			"Rev": "cd535bd25356746b9b1e824871dda7da932460e2"
+		},
+		{
+			"ImportPath": "github.com/jbenet/goprocess",
+			"Rev": "ea63e9540cd19cb39e0e4c4442b9c27664287bb8"
+		},
+		{
+			"ImportPath": "github.com/satori/go.uuid",
+			"Rev": "d41af8bb6a7704f00bc3b7cba9355ae6a5a80048"
 		},
 		{
 			"ImportPath": "github.com/whyrusleeping/go-multipart-files",
@@ -42,6 +68,10 @@
 		{
 			"ImportPath": "github.com/whyrusleeping/tar-utils",
 			"Rev": "e8a5890cfc9d59a203361237581468780d945b6e"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto/sha3",
+			"Rev": "8b27f58b78dbd60e9a26b60b0d908ea642974b6d"
 		},
 		{
 			"ImportPath": "gopkg.in/errgo.v1",

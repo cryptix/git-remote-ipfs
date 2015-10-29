@@ -106,7 +106,7 @@ func push(src, dst string) error {
 		// todo shell.IsNotExists() ?
 		log.WithField("err", err).Warning("shell.Patch rm-link info/refs failed - might be okay... TODO")
 	}
-	newRemoteURL := fmt.Sprintf("ipfs://%s", root)
+	newRemoteURL := fmt.Sprintf("ipfs:///ipfs/%s", root)
 	setUrlCmd := exec.Command("git", "remote", "set-url", thisGitRemote, newRemoteURL)
 	out, err := setUrlCmd.CombinedOutput()
 	if err != nil {

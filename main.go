@@ -5,15 +5,15 @@ TODO
 
 Currently assumes a IPFS Daemon at localhost:5001
 
-Not completed: Push, IPNS, URLs like ipfs::path/.., embedded IPFS node
+Not completed: new Push (issue #2), IPNS, URLs like fs:/ipfs/.. (issue #3), embedded IPFS node
 
 ...
 
- $ git clone ipfs://$hash/repo.git
+ $ git clone ipfs://ipfs/$hash/repo.git
  $ cd repo && make $stuff
  $ git commit -a -m 'done!'
  $ git push origin
- => clone-able as ipfs://$newHash/repo.git
+ => clone-able as ipfs://ipfs/$newHash/repo.git
 
 Links
 
@@ -22,6 +22,8 @@ https://ipfs.io
 https://github.com/whyrusleeping/git-ipfs-rehost
 
 https://git-scm.com/docs/gitremote-helpers
+
+https://git-scm.com/book/en/v2/Git-Internals-Plumbing-and-Porcelain
 
 https://git-scm.com/docs/gitrepository-layout
 
@@ -33,10 +35,11 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/cryptix/git-remote-ipfs/internal/path"
 
 	"github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/github.com/cryptix/go/debug"
 	"github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/github.com/cryptix/go/logging"
@@ -45,7 +48,10 @@ import (
 )
 
 const usageMsg = `usage git-remote-ipfs <repository> [<URL>]
-supports ipfs://$hash/path..
+supports:
+
+* ipfs://ipfs/$hash/path..
+* ipfs:///ipfs/$hash/path..
 
 `
 
@@ -94,14 +100,17 @@ func main() {
 	}
 
 	// parse passed URL
-	repoURL, err := url.Parse(u)
+	for _, pref := range []string{"ipfs://ipfs/", "ipfs:///ipfs/"} {
+		if strings.HasPrefix(u, pref) {
+			u = "/ipfs/" + u[len(pref):]
+			log.Debug("prefix cut:", u)
+		}
+	}
+	p, err := path.ParsePath(u)
 	if err != nil {
-		log.Fatalf("url.Parse() failed: %s", err)
+		log.Fatalf("path.ParsePath() failed: %s", err)
 	}
-	if repoURL.Scheme != "ipfs" { // ipns will have a seperate helper(?)
-		log.Fatal("only ipfs schema is supported")
-	}
-	ipfsRepoPath = fmt.Sprintf("/ipfs/%s/%s", repoURL.Host, repoURL.Path)
+	ipfsRepoPath = p.String()
 
 	// interrupt / error handling
 	go func() {

@@ -9,8 +9,8 @@ import (
 )
 
 func TestPush(t *testing.T) {
-	// $ git clone ipfs://$hash/repo.git $tmpDir
-	startURL := "ipfs://QmYFpZJs82hLTyEpwkzVpaXGUabVVwiT8yrd6TK81XnoGB/unpackedTest"
+	// $ git clone ipfs://ipfs/$hash/repo.git $tmpDir
+	startURL := "ipfs://ipfs/QmYFpZJs82hLTyEpwkzVpaXGUabVVwiT8yrd6TK81XnoGB/unpackedTest"
 	tmpDir := cloneAndCheckout(t, startURL, expectedClone)
 
 	// $ cd repo && make $stuff

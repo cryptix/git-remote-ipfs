@@ -41,7 +41,6 @@ import (
 
 	"github.com/cryptix/git-remote-ipfs/internal/path"
 
-	"github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/github.com/cryptix/go/debug"
 	"github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/github.com/cryptix/go/logging"
 	"github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/github.com/ipfs/go-ipfs-shell"
 	"github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/gopkg.in/errgo.v1"
@@ -127,9 +126,9 @@ func main() {
 // speakGit acts like a git-remote-helper
 // see this for more: https://www.kernel.org/pub/software/scm/git/docs/gitremote-helpers.html
 func speakGit(r io.Reader, w io.Writer) error {
-	debugLog := logging.Logger("git")
-	r = debug.NewReadLogrus(debugLog, r)
-	w = debug.NewWriteLogrus(debugLog, w)
+	//debugLog := logging.Logger("git")
+	//r = debug.NewReadLogrus(debugLog, r)
+	//w = debug.NewWriteLogrus(debugLog, w)
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		text := scanner.Text()

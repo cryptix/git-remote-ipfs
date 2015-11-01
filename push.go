@@ -77,7 +77,7 @@ func push(src, dst string) error {
 	}
 	h, ok := ref2hash[dst]
 	if !ok {
-		return errgo.Newf("writeRef: ref2hash entry missing: %s", dst)
+		return errgo.Newf("writeRef: ref2hash entry missing: %s %+v", dst, ref2hash)
 	}
 	isFF := gitIsAncestor(h, srcSha1)
 	if isFF != nil && !force {

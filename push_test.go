@@ -121,7 +121,7 @@ func TestPush_twice(t *testing.T) {
 		"hello.txt":  "e2839ad2e47386d342038958fba941fc78e3780e",
 		"notes":      "32ed91604b272860ec911fc2bf4ae631b7900aa8",
 		"newFile":    "cc7aae22f2d4301b6006e5f26e28b63579b61072",
-		"2ndNewFile": "cc7aae22f2d4301b6006e5f26e28b63579b61072",
+		"2ndNewFile": "bacbe054a5fc6654bac497e36b474cd6839e3616",
 	}
 	rmDir(t, cloneAndCheckout(t, nextURL, expectedClone))
 }

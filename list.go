@@ -73,7 +73,7 @@ func listIterateRefs(forPush bool) error {
 				return errgo.Notef(err, "walk(%s) cat close failed", p)
 			}
 			sha1 := strings.TrimSpace(string(data))
-			refName := strings.TrimPrefix(p, ipfsRepoPath)
+			refName := strings.TrimPrefix(p, ipfsRepoPath+"/")
 			ref2hash[refName] = sha1
 			log.WithField("refMap", ref2hash).Debug("ref2hash map updated")
 		}

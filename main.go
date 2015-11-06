@@ -105,6 +105,17 @@ func main() {
 			log.Debug("prefix cut:", u)
 		}
 	}
+	for _, pref := range []string{"ipfs://ipns/", "ipfs:///ipns/"} {
+		if strings.HasPrefix(u, pref) {
+			current, err := ipfsShell.ResolvePath("/ipns/" + u[len(pref):])
+			if err != nil {
+				log.Fatal("ipns resolve for current version failed:", err)
+			}
+			log.Warnln("can't push to ipns addresses - using current hash. resolved to:", current)
+			u = current
+		}
+	}
+
 	p, err := path.ParsePath(u)
 	if err != nil {
 		log.Fatalf("path.ParsePath() failed: %s", err)

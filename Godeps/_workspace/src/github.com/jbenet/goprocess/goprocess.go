@@ -115,6 +115,9 @@ type Process interface {
 	// It is useful to construct simple asynchronous workers, children of p.
 	Go(f ProcessFunc) Process
 
+	// SetTeardown sets the process's teardown to tf.
+	SetTeardown(tf TeardownFunc)
+
 	// Close ends the process. Close blocks until the process has completely
 	// shut down, and any teardown has run _exactly once_. The returned error
 	// is available indefinitely: calling Close twice returns the same error.
@@ -136,13 +139,15 @@ type Process interface {
 	// _after_ Close has completed; teardown has finished. The primary use case
 	// of Closed is waiting for a Process to Close without _causing_ the Close.
 	Closed() <-chan struct{}
+
+	// Err waits until the process is closed, and then returns any error that
+	// occurred during shutdown.
+	Err() error
 }
 
 // TeardownFunc is a function used to cleanup state at the end of the
 // lifecycle of a Process.
 type TeardownFunc func() error
-
-var nilTeardownFunc = func() error { return nil }
 
 // ProcessFunc is a function that takes a process. Its main use case is goprocess.Go,
 // which spawns a ProcessFunc in its own goroutine, and returns a corresponding

@@ -8,9 +8,10 @@ import (
 	dsq "github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/github.com/jbenet/go-datastore/query"
 )
 
+// op keys
 var (
 	putKey    = "put"
-	getKey    = "get" // op keys
+	getKey    = "get"
 	hasKey    = "has"
 	deleteKey = "delete"
 )

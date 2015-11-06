@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/github.com/ipfs/go-ipfs-shell"
+	"github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/github.com/ipfs/go-ipfs-api"
 	"github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/gopkg.in/errgo.v1"
 )
 
@@ -55,7 +55,7 @@ func listHeadRef() (string, error) {
 
 func listIterateRefs(forPush bool) error {
 	refsDir := filepath.Join(ipfsRepoPath, "refs")
-	return Walk(refsDir, func(p string, info *shell.LsEntry, err error) error {
+	return Walk(refsDir, func(p string, info *shell.LsLink, err error) error {
 		if err != nil {
 			return errgo.Notef(err, "walk(%s) failed", p)
 		}
@@ -85,9 +85,9 @@ func listIterateRefs(forPush bool) error {
 // then we can reuse filepath.Walk and make a lot of other stuff simpler
 var SkipDir = errgo.Newf("walk: skipping")
 
-type WalkFunc func(path string, info *shell.LsEntry, err error) error
+type WalkFunc func(path string, info *shell.LsLink, err error) error
 
-func walk(path string, info *shell.LsEntry, walkFn WalkFunc) error {
+func walk(path string, info *shell.LsLink, walkFn WalkFunc) error {
 	err := walkFn(path, info, nil)
 	if err != nil {
 		if info.Type == 1 && err == SkipDir {

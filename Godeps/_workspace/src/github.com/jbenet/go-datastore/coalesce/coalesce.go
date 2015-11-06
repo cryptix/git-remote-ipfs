@@ -7,9 +7,10 @@ import (
 	dsq "github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/github.com/jbenet/go-datastore/query"
 )
 
+// parent keys
 var (
 	putKey    = "put"
-	getKey    = "get" // parent keys
+	getKey    = "get"
 	hasKey    = "has"
 	deleteKey = "delete"
 )

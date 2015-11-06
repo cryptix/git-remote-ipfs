@@ -9,8 +9,8 @@ import (
 	dsq "github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/github.com/jbenet/go-datastore/query"
 )
 
-type // Datastore uses golang-lru for internal storage.
-Datastore struct {
+// Datastore uses golang-lru for internal storage.
+type Datastore struct {
 	cache *lru.Cache
 }
 

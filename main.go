@@ -42,7 +42,7 @@ import (
 	"github.com/cryptix/git-remote-ipfs/internal/path"
 
 	"github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/github.com/cryptix/go/logging"
-	"github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/github.com/ipfs/go-ipfs-shell"
+	"github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/github.com/ipfs/go-ipfs-api"
 	"github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/gopkg.in/errgo.v1"
 )
 

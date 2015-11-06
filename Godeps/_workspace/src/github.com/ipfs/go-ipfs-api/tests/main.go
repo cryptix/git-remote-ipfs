@@ -6,7 +6,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/github.com/ipfs/go-ipfs-shell"
+	"github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/github.com/ipfs/go-ipfs-api"
 
 	u "github.com/ipfs/go-ipfs/util"
 )

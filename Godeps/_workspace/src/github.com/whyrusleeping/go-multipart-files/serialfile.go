@@ -18,25 +18,35 @@ func (es sortFIByName) Less(i, j int) bool { return es[i].Name() < es[j].Name() 
 // No more than one file will be opened at a time (directories will advance
 // to the next file when NextFile() is called).
 type serialFile struct {
+	name    string
 	path    string
 	files   []os.FileInfo
 	stat    os.FileInfo
 	current *os.File
 }
 
-func NewSerialFile(path string, file *os.File) (File, error) {
-	stat, err := file.Stat()
+func NewSerialFile(name, path string, stat os.FileInfo) (File, error) {
+	if stat.Mode()&os.ModeSymlink != 0 {
+		target, err := os.Readlink(path)
+		if err != nil {
+			return nil, err
+		}
+
+		return NewLinkFile("", path, target, stat), nil
+	}
+
+	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 
-	return newSerialFile(path, file, stat)
+	return newSerialFile(name, path, file, stat)
 }
 
-func newSerialFile(path string, file *os.File, stat os.FileInfo) (File, error) {
+func newSerialFile(name, path string, file *os.File, stat os.FileInfo) (File, error) {
 	// for non-directories, return a ReaderFile
 	if !stat.IsDir() {
-		return &ReaderFile{path, file, stat}, nil
+		return &ReaderFile{name, path, file, stat}, nil
 	}
 
 	// for directories, stat all of the contents first, so we know what files to
@@ -48,15 +58,14 @@ func newSerialFile(path string, file *os.File, stat os.FileInfo) (File, error) {
 
 	// we no longer need our root directory file (we already statted the contents),
 	// so close it
-	err = file.Close()
-	if err != nil {
+	if err := file.Close(); err != nil {
 		return nil, err
 	}
 
 	// make sure contents are sorted so -- repeatably -- we get the same inputs.
 	sort.Sort(sortFIByName(contents))
 
-	return &serialFile{path, contents, stat, nil}, nil
+	return &serialFile{name, path, contents, stat, nil}, nil
 }
 
 func (f *serialFile) IsDirectory() bool {
@@ -81,20 +90,40 @@ func (f *serialFile) NextFile() (File, error) {
 	f.files = f.files[1:]
 
 	// open the next file
+	fileName := fp.Join(f.name, stat.Name())
 	filePath := fp.Join(f.path, stat.Name())
+	st, err := os.Lstat(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	if st.Mode()&os.ModeSymlink != 0 {
+		f.current = nil
+		target, err := os.Readlink(filePath)
+		if err != nil {
+			return nil, err
+		}
+		return NewLinkFile(fileName, filePath, target, st), nil
+	}
+
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
 	}
+
 	f.current = file
 
 	// recursively call the constructor on the next file
 	// if it's a regular file, we will open it as a ReaderFile
 	// if it's a directory, files in it will be opened serially
-	return newSerialFile(filePath, file, stat)
+	return newSerialFile(fileName, filePath, file, stat)
 }
 
 func (f *serialFile) FileName() string {
+	return f.name
+}
+
+func (f *serialFile) FullPath() string {
 	return f.path
 }
 
@@ -120,31 +149,16 @@ func (f *serialFile) Stat() os.FileInfo {
 }
 
 func (f *serialFile) Size() (int64, error) {
-	return size(f.stat, f.FileName())
-}
-
-func size(stat os.FileInfo, filename string) (int64, error) {
-	if !stat.IsDir() {
-		return stat.Size(), nil
+	if !f.stat.IsDir() {
+		return f.stat.Size(), nil
 	}
 
-	file, err := os.Open(filename)
-	if err != nil {
-		return 0, err
-	}
-	files, err := file.Readdir(0)
-	if err != nil {
-		return 0, err
-	}
-	file.Close()
-
-	var output int64
-	for _, child := range files {
-		s, err := size(child, fp.Join(filename, child.Name()))
-		if err != nil {
-			return 0, err
+	var du int64
+	err := fp.Walk(f.FileName(), func(p string, fi os.FileInfo, err error) error {
+		if fi != nil && fi.Mode()&(os.ModeSymlink|os.ModeNamedPipe) == 0 {
+			du += fi.Size()
 		}
-		output += s
-	}
-	return output, nil
+		return nil
+	})
+	return du, err
 }

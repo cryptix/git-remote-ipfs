@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/gopkg.in/errgo.v1"
+	"gopkg.in/errgo.v1"
 )
 
 func fetchFullBareRepo(root string) (string, error) {

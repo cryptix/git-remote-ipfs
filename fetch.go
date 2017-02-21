@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/github.com/cryptix/exp/git"
-	"github.com/cryptix/git-remote-ipfs/Godeps/_workspace/src/gopkg.in/errgo.v1"
+	"github.com/cryptix/exp/git"
+	"gopkg.in/errgo.v1"
 )
 
 // "fetch $sha1 $ref" method 1 - unpacking loose objects

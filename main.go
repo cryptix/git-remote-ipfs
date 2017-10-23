@@ -40,10 +40,9 @@ import (
 	"strings"
 
 	"github.com/cryptix/git-remote-ipfs/internal/path"
-
 	"github.com/cryptix/go/logging"
 	"github.com/ipfs/go-ipfs-shell"
-	"gopkg.in/errgo.v1"
+	"github.com/pkg/errors"
 )
 
 const usageMsg = `usage git-remote-ipfs <repository> [<URL>]
@@ -158,7 +157,7 @@ func speakGit(r io.Reader, w io.Writer) error {
 				}
 			}
 			if len(ref2hash) == 0 {
-				return errgo.New("did not find _any_ refs...")
+				return errors.New("did not find _any_ refs...")
 			}
 			// output
 			for ref, hash := range ref2hash {
@@ -175,7 +174,7 @@ func speakGit(r io.Reader, w io.Writer) error {
 			for scanner.Scan() {
 				fetchSplit := strings.Split(text, " ")
 				if len(fetchSplit) < 2 {
-					return errgo.Newf("malformed 'fetch' command. %q", text)
+					return errors.Errorf("malformed 'fetch' command. %q", text)
 				}
 				f := []interface{}{
 					"sha1", fetchSplit[1],
@@ -190,7 +189,7 @@ func speakGit(r io.Reader, w io.Writer) error {
 				log.Log(append(f, "err", err, "msg", "fetchLooseObject failed, trying packed...")...)
 				err = fetchPackedObject(fetchSplit[1])
 				if err != nil {
-					return errgo.Notef(err, "fetchPackedObject() failed")
+					return errors.Wrap(err, "fetchPackedObject() failed")
 				}
 				log.Log(append(f, "msg", "fetched packed"))
 				text = scanner.Text()
@@ -204,11 +203,11 @@ func speakGit(r io.Reader, w io.Writer) error {
 			for scanner.Scan() {
 				pushSplit := strings.Split(text, " ")
 				if len(pushSplit) < 2 {
-					return errgo.Newf("malformed 'push' command. %q", text)
+					return errors.Errorf("malformed 'push' command. %q", text)
 				}
 				srcDstSplit := strings.Split(pushSplit[1], ":")
 				if len(srcDstSplit) < 2 {
-					return errgo.Newf("malformed 'push' command. %q", text)
+					return errors.Errorf("malformed 'push' command. %q", text)
 				}
 				src, dst := srcDstSplit[0], srcDstSplit[1]
 				f := []interface{}{
@@ -236,11 +235,11 @@ func speakGit(r io.Reader, w io.Writer) error {
 			break
 
 		default:
-			return errgo.Newf("Error: default git speak: %q", text)
+			return errors.Errorf("Error: default git speak: %q", text)
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		return errgo.Notef(err, "scanner.Err()")
+		return errors.Wrap(err, "scanner.Err()")
 	}
 	return nil
 }

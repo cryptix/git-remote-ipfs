@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/cryptix/exp/git"
-	"gopkg.in/errgo.v1"
+	"github.com/pkg/errors"
 )
 
 // "fetch $sha1 $ref" method 1 - unpacking loose objects
@@ -23,15 +23,15 @@ func fetchObject(sha1 string) error {
 func recurseCommit(sha1 string) error {
 	obj, err := fetchAndWriteObj(sha1)
 	if err != nil {
-		return errgo.Notef(err, "fetchAndWriteObj(%s) commit object failed", sha1)
+		return errors.Wrapf(err, "fetchAndWriteObj(%s) commit object failed", sha1)
 	}
 	commit, ok := obj.Commit()
 	if !ok {
-		return errgo.Newf("sha1<%s> is not a git commit object:%s ", sha1, obj)
+		return errors.Errorf("sha1<%s> is not a git commit object:%s ", sha1, obj)
 	}
 	if commit.Parent != "" {
 		if err := recurseCommit(commit.Parent); err != nil {
-			return errgo.Notef(err, "recurseCommit(%s) commit Parent failed", commit.Parent)
+			return errors.Wrapf(err, "recurseCommit(%s) commit Parent failed", commit.Parent)
 		}
 	}
 	return fetchTree(commit.Tree)
@@ -40,19 +40,19 @@ func recurseCommit(sha1 string) error {
 func fetchTree(sha1 string) error {
 	obj, err := fetchAndWriteObj(sha1)
 	if err != nil {
-		return errgo.Notef(err, "fetchAndWriteObj(%s) commit tree failed", sha1)
+		return errors.Wrapf(err, "fetchAndWriteObj(%s) commit tree failed", sha1)
 	}
 	entries, ok := obj.Tree()
 	if !ok {
-		return errgo.Newf("sha1<%s> is not a git tree object:%s ", sha1, obj)
+		return errors.Errorf("sha1<%s> is not a git tree object:%s ", sha1, obj)
 	}
 	for _, t := range entries {
 		obj, err := fetchAndWriteObj(t.SHA1Sum.String())
 		if err != nil {
-			return errgo.Notef(err, "fetchAndWriteObj(%s) commit tree failed", sha1)
+			return errors.Wrapf(err, "fetchAndWriteObj(%s) commit tree failed", sha1)
 		}
 		if obj.Type != git.BlobT {
-			return errgo.Newf("sha1<%s> is not a git tree object:%s ", t.SHA1Sum.String(), obj)
+			return errors.Errorf("sha1<%s> is not a git tree object:%s ", t.SHA1Sum.String(), obj)
 		}
 	}
 	return nil
@@ -64,30 +64,32 @@ func fetchAndWriteObj(sha1 string) (*git.Object, error) {
 	p := filepath.Join(ipfsRepoPath, "objects", sha1[:2], sha1[2:])
 	ipfsCat, err := ipfsShell.Cat(p)
 	if err != nil {
-		return nil, errgo.Notef(err, "shell.Cat() commit failed")
+		return nil, errors.Wrapf(err, "shell.Cat() commit failed")
 	}
 	targetP := filepath.Join(thisGitRepo, "objects", sha1[:2], sha1[2:])
 	if err := os.MkdirAll(filepath.Join(thisGitRepo, "objects", sha1[:2]), 0700); err != nil {
-		return nil, errgo.Notef(err, "mkDirAll() failed")
+		return nil, errors.Wrapf(err, "mkDirAll() failed")
 	}
 	targetObj, err := os.Create(targetP)
 	if err != nil {
-		return nil, errgo.Notef(err, "os.Create(%s) commit failed", targetP)
+		return nil, errors.Wrapf(err, "os.Create(%s) commit failed", targetP)
 	}
 	obj, err := git.DecodeObject(io.TeeReader(ipfsCat, targetObj))
 	if err != nil {
-		return nil, errgo.Notef(err, "git.DecodeObject(commit) failed")
+		return nil, errors.Wrapf(err, "git.DecodeObject(commit) failed")
 	}
 
 	if err := ipfsCat.Close(); err != nil {
+		err = errors.Wrap(err, "ipfs/cat Close failed")
 		if errRm := os.Remove(targetObj.Name()); errRm != nil {
-			return nil, errgo.WithCausef(errRm, err, "os.Remove(targetObj) failed while closing ipfs cat")
+			err = errors.Wrapf(err, "failed removing targetObj: %s", errRm)
+			return nil, err
 		}
-		return nil, errgo.Notef(err, "closing ipfs cat failed")
+		return nil, errors.Wrapf(err, "closing ipfs cat failed")
 	}
 
 	if err := targetObj.Close(); err != nil {
-		return nil, errgo.Notef(err, "target file close() failed")
+		return nil, errors.Wrapf(err, "target file close() failed")
 	}
 
 	return obj, nil
@@ -104,7 +106,7 @@ func fetchPackedObject(sha1 string) error {
 	packPath := filepath.Join(ipfsRepoPath, "objects", "pack")
 	links, err := ipfsShell.List(packPath)
 	if err != nil {
-		return errgo.Notef(err, "shell FileList(%q) failed", packPath)
+		return errors.Wrapf(err, "shell FileList(%q) failed", packPath)
 	}
 	var indexes []string
 	for _, lnk := range links {
@@ -113,12 +115,12 @@ func fetchPackedObject(sha1 string) error {
 		}
 	}
 	if len(indexes) == 0 {
-		return errgo.New("fetchPackedObject: no idx files found")
+		return errors.New("fetchPackedObject: no idx files found")
 	}
 	for _, idx := range indexes {
 		idxF, err := ipfsShell.Cat(idx)
 		if err != nil {
-			return errgo.Notef(err, "fetchPackedObject: idx<%s> cat(%s) failed", sha1, idx)
+			return errors.Wrapf(err, "fetchPackedObject: idx<%s> cat(%s) failed", sha1, idx)
 		}
 		// using external git show-index < idxF for now
 		// TODO: parse index file in go to make this portable
@@ -128,7 +130,7 @@ func fetchPackedObject(sha1 string) error {
 		showIdx.Stdout = &b
 		showIdx.Stderr = &b
 		if err := showIdx.Run(); err != nil {
-			return errgo.Notef(err, "fetchPackedObject: idx<%s> show-index start failed", sha1)
+			return errors.Wrapf(err, "fetchPackedObject: idx<%s> show-index start failed", sha1)
 		}
 		cmdOut := b.String()
 		if !strings.Contains(cmdOut, sha1) {
@@ -141,7 +143,7 @@ func fetchPackedObject(sha1 string) error {
 		log.Log("event", "debug", "msg", "unpacking:", pack)
 		packF, err := ipfsShell.Cat(pack)
 		if err != nil {
-			return errgo.Notef(err, "fetchPackedObject: pack<%s> open() failed", sha1)
+			return errors.Wrapf(err, "fetchPackedObject: pack<%s> open() failed", sha1)
 		}
 		b.Reset()
 		unpackIdx := exec.Command("git", "unpack-objects")
@@ -150,10 +152,10 @@ func fetchPackedObject(sha1 string) error {
 		unpackIdx.Stdout = &b
 		unpackIdx.Stderr = &b
 		if err := unpackIdx.Run(); err != nil {
-			return errgo.Notef(err, "fetchPackedObject: pack<%s> 'git unpack-objects' failed\nOutput: %s", sha1, b.String())
+			return errors.Wrapf(err, "fetchPackedObject: pack<%s> 'git unpack-objects' failed\nOutput: %s", sha1, b.String())
 		}
 		log.Log("event", "debug", "msg", "unpack-objects", "obj", b.String())
 		return nil
 	}
-	return errgo.Newf("did not find sha1<%s> in %d index files", sha1, len(indexes))
+	return errors.Errorf("did not find sha1<%s> in %d index files", sha1, len(indexes))
 }

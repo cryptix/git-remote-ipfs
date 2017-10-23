@@ -8,25 +8,25 @@ import (
 	"strings"
 
 	"github.com/ipfs/go-ipfs-shell"
-	"gopkg.in/errgo.v1"
+	"github.com/pkg/errors"
 )
 
 func listInfoRefs(forPush bool) error {
 	refsCat, err := ipfsShell.Cat(filepath.Join(ipfsRepoPath, "info", "refs"))
 	if err != nil {
-		return errgo.Notef(err, "failed to cat info/refs from %s", ipfsRepoPath)
+		return errors.Wrapf(err, "failed to cat info/refs from %s", ipfsRepoPath)
 	}
 	s := bufio.NewScanner(refsCat)
 	for s.Scan() {
 		hashRef := strings.Split(s.Text(), "\t")
 		if len(hashRef) != 2 {
-			return errgo.Newf("processing info/refs: what is this: %v", hashRef)
+			return errors.Errorf("processing info/refs: what is this: %v", hashRef)
 		}
 		ref2hash[hashRef[1]] = hashRef[0]
 		log.Log("ref", hashRef[1], "sha1", hashRef[0], "msg", "got ref")
 	}
 	if err := s.Err(); err != nil {
-		return errgo.Notef(err, "ipfs.Cat(info/refs) scanner error")
+		return errors.Wrapf(err, "ipfs.Cat(info/refs) scanner error")
 	}
 	return nil
 }
@@ -34,20 +34,20 @@ func listInfoRefs(forPush bool) error {
 func listHeadRef() (string, error) {
 	headCat, err := ipfsShell.Cat(filepath.Join(ipfsRepoPath, "HEAD"))
 	if err != nil {
-		return "", errgo.Notef(err, "failed to cat HEAD from %s", ipfsRepoPath)
+		return "", errors.Wrapf(err, "failed to cat HEAD from %s", ipfsRepoPath)
 	}
 	head, err := ioutil.ReadAll(headCat)
 	if err != nil {
-		return "", errgo.Notef(err, "failed to readAll HEAD from %s", ipfsRepoPath)
+		return "", errors.Wrapf(err, "failed to readAll HEAD from %s", ipfsRepoPath)
 	}
 	if !bytes.HasPrefix(head, []byte("ref: ")) {
-		return "", errgo.Newf("illegal HEAD file from %s: %q", ipfsRepoPath, head)
+		return "", errors.Errorf("illegal HEAD file from %s: %q", ipfsRepoPath, head)
 	}
 	headRef := string(bytes.TrimSpace(head[5:]))
 	headHash, ok := ref2hash[headRef]
 	if !ok {
 		// use first hash in map?..
-		return "", errgo.Newf("unknown HEAD reference %q", headRef)
+		return "", errors.Errorf("unknown HEAD reference %q", headRef)
 	}
 	log.Log("event", "debug", "ref", headRef, "sha1", headHash, "msg", "got HEAD ref")
 	return headHash, headCat.Close()
@@ -57,20 +57,20 @@ func listIterateRefs(forPush bool) error {
 	refsDir := filepath.Join(ipfsRepoPath, "refs")
 	return Walk(refsDir, func(p string, info *shell.LsLink, err error) error {
 		if err != nil {
-			return errgo.Notef(err, "walk(%s) failed", p)
+			return errors.Wrapf(err, "walk(%s) failed", p)
 		}
 		log.Log("event", "debug", "info", info, "msg", "iterateRefs: walked to", "p", p)
 		if info.Type == 2 {
 			rc, err := ipfsShell.Cat(p)
 			if err != nil {
-				return errgo.Notef(err, "walk(%s) cat ref failed", p)
+				return errors.Wrapf(err, "walk(%s) cat ref failed", p)
 			}
 			data, err := ioutil.ReadAll(rc)
 			if err != nil {
-				return errgo.Notef(err, "walk(%s) readAll failed", p)
+				return errors.Wrapf(err, "walk(%s) readAll failed", p)
 			}
 			if err := rc.Close(); err != nil {
-				return errgo.Notef(err, "walk(%s) cat close failed", p)
+				return errors.Wrapf(err, "walk(%s) cat close failed", p)
 			}
 			sha1 := strings.TrimSpace(string(data))
 			refName := strings.TrimPrefix(p, ipfsRepoPath+"/")
@@ -83,7 +83,7 @@ func listIterateRefs(forPush bool) error {
 
 // semi-todo make shell implement http.FileSystem
 // then we can reuse filepath.Walk and make a lot of other stuff simpler
-var SkipDir = errgo.Newf("walk: skipping")
+var SkipDir = errors.Errorf("walk: skipping")
 
 type WalkFunc func(path string, info *shell.LsLink, err error) error
 

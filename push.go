@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"gopkg.in/errgo.v1"
+	"github.com/pkg/errors"
 )
 
 func push(src, dst string) error {
@@ -22,7 +22,7 @@ func push(src, dst string) error {
 	// also: track previously pushed branches in 2nd map and extend present with it
 	need2push, err := gitListObjects(src, present)
 	if err != nil {
-		return errgo.Notef(err, "push: git list objects failed %q %v", src, present)
+		return errors.Wrapf(err, "push: git list objects failed %q %v", src, present)
 	}
 	n := len(need2push)
 	type pair struct {
@@ -36,12 +36,12 @@ func push(src, dst string) error {
 		go func(sha1 string) {
 			r, err := gitFlattenObject(sha1)
 			if err != nil {
-				added <- pair{Err: errgo.Notef(err, "gitFlattenObject failed")}
+				added <- pair{Err: errors.Wrapf(err, "gitFlattenObject failed")}
 				return
 			}
 			mhash, err := ipfsShell.Add(r)
 			if err != nil {
-				added <- pair{Err: errgo.Notef(err, "shell.Add(%s) failed", sha1)}
+				added <- pair{Err: errors.Wrapf(err, "shell.Add(%s) failed", sha1)}
 				return
 			}
 			added <- pair{Sha1: sha1, MHash: mhash}
@@ -54,46 +54,46 @@ func push(src, dst string) error {
 			if p.Err != nil {
 				return p.Err
 			}
-			log.Log("pair", p, "added")
+			log.Log("pair", p, "msg", "added")
 			objHash2multi[p.Sha1] = p.MHash
 			n--
 		}
 	}
 	root, err := ipfsShell.ResolvePath(ipfsRepoPath)
 	if err != nil {
-		return errgo.Notef(err, "resolvePath(%s) failed", ipfsRepoPath)
+		return errors.Wrapf(err, "resolvePath(%s) failed", ipfsRepoPath)
 	}
 	for sha1, mhash := range objHash2multi {
 		newRoot, err := ipfsShell.PatchLink(root, filepath.Join("objects", sha1[:2], sha1[2:]), mhash, true)
 		if err != nil {
-			return errgo.Notef(err, "patchLink failed")
+			return errors.Wrapf(err, "patchLink failed")
 		}
 		root = newRoot
 		log.Log("newRoot", newRoot, "sha1", sha1, "msg", "updated object")
 	}
 	srcSha1, err := gitRefHash(src)
 	if err != nil {
-		return errgo.Notef(err, "gitRefHash(%s) failed", src)
+		return errors.Wrapf(err, "gitRefHash(%s) failed", src)
 	}
 	h, ok := ref2hash[dst]
 	if !ok {
-		return errgo.Newf("writeRef: ref2hash entry missing: %s %+v", dst, ref2hash)
+		return errors.Errorf("writeRef: ref2hash entry missing: %s %+v", dst, ref2hash)
 	}
 	isFF := gitIsAncestor(h, srcSha1)
 	if isFF != nil && !force {
 		// TODO: print "non-fast-forward" to git
-		return fmt.Errorf("non-fast-forward")
+		return errors.Errorf("non-fast-forward")
 	}
 	mhash, err := ipfsShell.Add(bytes.NewBufferString(fmt.Sprintf("%s\n", srcSha1)))
 	if err != nil {
-		return errgo.Notef(err, "shell.Add(%s) failed", srcSha1)
+		return errors.Wrapf(err, "shell.Add(%s) failed", srcSha1)
 	}
 	root, err = ipfsShell.PatchLink(root, dst, mhash, true)
 	if err != nil {
 		// TODO:print "fetch first" to git
-		err = errgo.Notef(err, "patchLink(%s) failed", ipfsRepoPath)
+		err = errors.Wrapf(err, "patchLink(%s) failed", ipfsRepoPath)
 		log.Log("err", err, "msg", "shell.PatchLink failed")
-		return fmt.Errorf("fetch first")
+		return errors.Errorf("fetch first")
 	}
 	log.Log("newRoot", root, "dst", dst, "hash", srcSha1, "msg", "updated ref")
 	// invalidate info/refs and HEAD(?)
@@ -110,7 +110,7 @@ func push(src, dst string) error {
 	updateRepoCMD := exec.Command("git", "remote", "set-url", thisGitRemote, newRemoteURL)
 	out, err := updateRepoCMD.CombinedOutput()
 	if err != nil {
-		return errgo.Notef(err, "updating remote url failed\nOut:%s", string(out))
+		return errors.Wrapf(err, "updating remote url failed\nOut:%s", string(out))
 	}
 	log.Log("msg", "remote updated", "address", newRemoteURL)
 	return nil

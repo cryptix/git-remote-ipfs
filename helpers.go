@@ -1,13 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
 
-	"gopkg.in/errgo.v1"
+	"github.com/pkg/errors"
 )
 
 func fetchFullBareRepo(root string) (string, error) {
@@ -17,16 +16,16 @@ func fetchFullBareRepo(root string) (string, error) {
 	switch {
 	case os.IsNotExist(err) || err == nil:
 		if err := ipfsShell.Get(root, tmpPath); err != nil {
-			return "", errgo.Notef(err, "shell.Get(%s, %s) failed: %s", root, tmpPath, err)
+			return "", errors.Wrapf(err, "shell.Get(%s, %s) failed: %s", root, tmpPath, err)
 		}
 		return tmpPath, nil
 	default:
-		return "", errgo.Notef(err, "os.Stat(): unhandled error")
+		return "", errors.Wrap(err, "os.Stat(): unhandled error")
 	}
 }
 
 func interrupt() error {
 	c := make(chan os.Signal)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-	return fmt.Errorf("%s", <-c)
+	return errors.Errorf("%s", <-c)
 }

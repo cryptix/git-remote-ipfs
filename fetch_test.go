@@ -48,12 +48,12 @@ var expectedClone = map[string]string{
 
 func TestClone(t *testing.T) {
 	// pinned by pinbot, prepared with 'git-ipfs-rehost https://github.com/cryptix/git-remote-ipfs-testcase'
-	rmDir(t, cloneAndCheckout(t, "ipfs://ipfs/QmNRzJ6weMUs8SpeGApfY6XZEPcVbg1PTAARFZJ2C2McJq/git-remote-ipfs-testcase", expectedClone))
+	rmDir(t, cloneAndCheckout(t, "ipfs://ipfs/QmRKt5VfMS92x77eFQFUVVmYLdLUv24gxyjS7MsMc62B1K/git-remote-ipfs-testcase", expectedClone))
 }
 
 func TestClone_unpacked(t *testing.T) {
 	// pinned by pinbot, prepared with 'git-ipfs-rehost --unpack https://github.com/cryptix/git-remote-ipfs-testcase unpackedTest'
-	rmDir(t, cloneAndCheckout(t, "ipfs://ipfs/QmYFpZJs82hLTyEpwkzVpaXGUabVVwiT8yrd6TK81XnoGB/unpackedTest", expectedClone))
+	rmDir(t, cloneAndCheckout(t, "ipfs://ipfs/QmZhuM4TxuhxbamPtWHyHYCUXfkqCkgBmWREKF2kqTLbvz/unpackedTest", expectedClone))
 }
 
 // helpers

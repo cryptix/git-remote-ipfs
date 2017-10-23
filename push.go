@@ -54,7 +54,7 @@ func push(src, dst string) error {
 			if p.Err != nil {
 				return p.Err
 			}
-			log.WithField("pair", p).Debug("added")
+			log.Log("pair", p, "added")
 			objHash2multi[p.Sha1] = p.MHash
 			n--
 		}
@@ -69,7 +69,7 @@ func push(src, dst string) error {
 			return errgo.Notef(err, "patchLink failed")
 		}
 		root = newRoot
-		log.WithField("newRoot", newRoot).WithField("sha1", sha1).Debug("updated object")
+		log.Log("newRoot", newRoot, "sha1", sha1, "msg", "updated object")
 	}
 	srcSha1, err := gitRefHash(src)
 	if err != nil {
@@ -92,26 +92,26 @@ func push(src, dst string) error {
 	if err != nil {
 		// TODO:print "fetch first" to git
 		err = errgo.Notef(err, "patchLink(%s) failed", ipfsRepoPath)
-		log.WithField("err", err).Error("shell.PatchLink failed")
+		log.Log("err", err, "msg", "shell.PatchLink failed")
 		return fmt.Errorf("fetch first")
 	}
-	log.WithField("newRoot", root).WithField("dst", dst).WithField("hash", srcSha1).Debug("updated ref")
+	log.Log("newRoot", root, "dst", dst, "hash", srcSha1, "msg", "updated ref")
 	// invalidate info/refs and HEAD(?)
 	// TODO: unclean: need to put other revs, too make a soft git update-server-info maybe
 	noInfoRefsHash, err := ipfsShell.Patch(root, "rm-link", "info/refs")
 	if err == nil {
-		log.WithField("newRoot", noInfoRefsHash).Debug("rm-link'ed info/refs")
+		log.Log("newRoot", noInfoRefsHash, "msg", "rm-link'ed info/refs")
 		root = noInfoRefsHash
 	} else {
 		// todo shell.IsNotExists() ?
-		log.WithField("err", err).Warning("shell.Patch rm-link info/refs failed - might be okay... TODO")
+		log.Log("err", err, "msg", "shell.Patch rm-link info/refs failed - might be okay... TODO")
 	}
 	newRemoteURL := fmt.Sprintf("ipfs:///ipfs/%s", root)
-	setUrlCmd := exec.Command("git", "remote", "set-url", thisGitRemote, newRemoteURL)
-	out, err := setUrlCmd.CombinedOutput()
+	updateRepoCMD := exec.Command("git", "remote", "set-url", thisGitRemote, newRemoteURL)
+	out, err := updateRepoCMD.CombinedOutput()
 	if err != nil {
 		return errgo.Notef(err, "updating remote url failed\nOut:%s", string(out))
 	}
-	log.Info("remote updated - new address:", newRemoteURL)
+	log.Log("msg", "remote updated", "address", newRemoteURL)
 	return nil
 }

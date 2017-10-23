@@ -23,7 +23,7 @@ func listInfoRefs(forPush bool) error {
 			return errgo.Newf("processing info/refs: what is this: %v", hashRef)
 		}
 		ref2hash[hashRef[1]] = hashRef[0]
-		log.WithField("ref", hashRef[1]).WithField("sha1", hashRef[0]).Debug("got ref")
+		log.Log("ref", hashRef[1], "sha1", hashRef[0], "msg", "got ref")
 	}
 	if err := s.Err(); err != nil {
 		return errgo.Notef(err, "ipfs.Cat(info/refs) scanner error")
@@ -49,17 +49,17 @@ func listHeadRef() (string, error) {
 		// use first hash in map?..
 		return "", errgo.Newf("unknown HEAD reference %q", headRef)
 	}
-	log.WithField("ref", headRef).WithField("sha1", headHash).Debug("got HEAD ref")
+	log.Log("event", "debug", "ref", headRef, "sha1", headHash, "msg", "got HEAD ref")
 	return headHash, headCat.Close()
 }
 
 func listIterateRefs(forPush bool) error {
 	refsDir := filepath.Join(ipfsRepoPath, "refs")
-	return Walk(refsDir, func(p string, info *shell.LsEntry, err error) error {
+	return Walk(refsDir, func(p string, info *shell.LsLink, err error) error {
 		if err != nil {
 			return errgo.Notef(err, "walk(%s) failed", p)
 		}
-		log.WithField("info", info).Debug("iterateRefs: walked to:", p)
+		log.Log("event", "debug", "info", info, "msg", "iterateRefs: walked to", "p", p)
 		if info.Type == 2 {
 			rc, err := ipfsShell.Cat(p)
 			if err != nil {
@@ -75,7 +75,7 @@ func listIterateRefs(forPush bool) error {
 			sha1 := strings.TrimSpace(string(data))
 			refName := strings.TrimPrefix(p, ipfsRepoPath+"/")
 			ref2hash[refName] = sha1
-			log.WithField("refMap", ref2hash).Debug("ref2hash map updated")
+			log.Log("event", "debug", "refMap", ref2hash, "msg", "ref2hash map updated")
 		}
 		return nil
 	})
@@ -85,9 +85,9 @@ func listIterateRefs(forPush bool) error {
 // then we can reuse filepath.Walk and make a lot of other stuff simpler
 var SkipDir = errgo.Newf("walk: skipping")
 
-type WalkFunc func(path string, info *shell.LsEntry, err error) error
+type WalkFunc func(path string, info *shell.LsLink, err error) error
 
-func walk(path string, info *shell.LsEntry, walkFn WalkFunc) error {
+func walk(path string, info *shell.LsLink, walkFn WalkFunc) error {
 	err := walkFn(path, info, nil)
 	if err != nil {
 		if info.Type == 1 && err == SkipDir {
@@ -100,7 +100,8 @@ func walk(path string, info *shell.LsEntry, walkFn WalkFunc) error {
 	}
 	list, err := ipfsShell.List(path)
 	if err != nil {
-		log.Error("walk list failed", err)
+		log.Log("msg", "walk list failed", "err", err)
+
 		return walkFn(path, info, err)
 	}
 	for _, lnk := range list {
@@ -118,7 +119,7 @@ func walk(path string, info *shell.LsEntry, walkFn WalkFunc) error {
 func Walk(root string, walkFn WalkFunc) error {
 	list, err := ipfsShell.List(root)
 	if err != nil {
-		log.Error("walk root failed", err)
+		log.Log("msg", "walk root failed", "err", err)
 		return walkFn(root, nil, err)
 	}
 	for _, l := range list {

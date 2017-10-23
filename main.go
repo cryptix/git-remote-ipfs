@@ -67,24 +67,30 @@ var (
 	thisGitRepo   string
 	thisGitRemote string
 	errc          chan<- error
-	log           = logging.Logger("git-remote-ipfs")
+	log           logging.Interface
+	check         = logging.CheckFatal
 )
+
+func logFatal(msg string) {
+	log.Log("event", "fatal", "msg", msg)
+	os.Exit(1)
+}
 
 func main() {
 	// logging
 	logging.SetupLogging(nil)
+	log = logging.Logger("git-remote-ipfs")
 
 	// env var and arguments
 	thisGitRepo = os.Getenv("GIT_DIR")
 	if thisGitRepo == "" {
-		log.Fatal("could not get GIT_DIR env var")
+		logFatal("could not get GIT_DIR env var")
 	}
 	if thisGitRepo == ".git" {
 		cwd, err := os.Getwd()
 		logging.CheckFatal(err)
 		thisGitRepo = filepath.Join(cwd, ".git")
 	}
-	log.Debug("GIT_DIR=", thisGitRepo)
 
 	var u string // repo url
 	v := len(os.Args[1:])
@@ -92,35 +98,28 @@ func main() {
 	case 2:
 		thisGitRemote = os.Args[1]
 		u = os.Args[2]
-		log.Debug("remote:", thisGitRemote)
-		log.Debug("url:", u)
 	default:
-		log.Fatalf("usage: unknown # of args: %d\n%v", v, os.Args[1:])
+		logFatal(fmt.Sprintf("usage: unknown # of args: %d\n%v", v, os.Args[1:]))
 	}
 
 	// parse passed URL
 	for _, pref := range []string{"ipfs://ipfs/", "ipfs:///ipfs/"} {
 		if strings.HasPrefix(u, pref) {
 			u = "/ipfs/" + u[len(pref):]
-			log.Debug("prefix cut:", u)
+			log.Log("event", "debug", "msg", "prefix", "u", u)
 		}
 	}
 	p, err := path.ParsePath(u)
-	if err != nil {
-		log.Fatalf("path.ParsePath() failed: %s", err)
-	}
+	check(err)
+
 	ipfsRepoPath = p.String()
 
 	// interrupt / error handling
 	go func() {
-		if err := interrupt(); err != nil {
-			log.Fatal("interrupted:", err)
-		}
+		check(interrupt())
 	}()
 
-	if err := speakGit(os.Stdin, os.Stdout); err != nil {
-		log.Fatal("speakGit failed:", err)
-	}
+	check(speakGit(os.Stdin, os.Stdout))
 }
 
 // speakGit acts like a git-remote-helper
@@ -140,7 +139,6 @@ func speakGit(r io.Reader, w io.Writer) error {
 			fmt.Fprintln(w, "")
 
 		case strings.HasPrefix(text, "list"):
-			log.Debug("got list line")
 			var (
 				forPush = strings.Contains(text, "for-push")
 				err     error
@@ -152,9 +150,9 @@ func speakGit(r io.Reader, w io.Writer) error {
 				}
 			} else { // alternativly iterate over the refs directory like git-remote-dropbox
 				if forPush {
-					log.Info("for-push: should be able to push to non existant.. TODO #2")
+					log.Log("msg", "for-push: should be able to push to non existant.. TODO #2")
 				}
-				log.WithField("err", err).Debug("didn't find info/refs in repo, falling back...")
+				log.Log("err", err, "msg", "didn't find info/refs in repo, falling back...")
 				if err = listIterateRefs(forPush); err != nil {
 					return err
 				}
@@ -179,22 +177,22 @@ func speakGit(r io.Reader, w io.Writer) error {
 				if len(fetchSplit) < 2 {
 					return errgo.Newf("malformed 'fetch' command. %q", text)
 				}
-				f := map[string]interface{}{
-					"sha1": fetchSplit[1],
-					"name": fetchSplit[2],
+				f := []interface{}{
+					"sha1", fetchSplit[1],
+					"name", fetchSplit[2],
 				}
 				err := fetchObject(fetchSplit[1])
 				if err == nil {
-					log.WithFields(f).Debug("fetched loose")
+					log.Log(append(f, "msg", "fetched loose"))
 					fmt.Fprintln(w, "")
 					continue
 				}
-				log.WithFields(f).WithField("err", err).Debug("fetchLooseObject failed, trying packed...")
+				log.Log(append(f, "err", err, "msg", "fetchLooseObject failed, trying packed...")...)
 				err = fetchPackedObject(fetchSplit[1])
 				if err != nil {
 					return errgo.Notef(err, "fetchPackedObject() failed")
 				}
-				log.WithFields(f).Debug("fetched packed")
+				log.Log(append(f, "msg", "fetched packed"))
 				text = scanner.Text()
 				if text == "" {
 					break
@@ -213,11 +211,11 @@ func speakGit(r io.Reader, w io.Writer) error {
 					return errgo.Newf("malformed 'push' command. %q", text)
 				}
 				src, dst := srcDstSplit[0], srcDstSplit[1]
-				f := map[string]interface{}{
-					"src": src,
-					"dst": dst,
+				f := []interface{}{
+					"src", src,
+					"dst", dst,
 				}
-				log.WithFields(f).Debug("got push")
+				log.Log(append(f, "msg", "got push"))
 				if src == "" {
 					fmt.Fprintf(w, "error %s %s\n", dst, "delete remote dst: not supported yet - please open an issue on github")
 				} else {

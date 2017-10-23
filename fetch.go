@@ -132,13 +132,13 @@ func fetchPackedObject(sha1 string) error {
 		}
 		cmdOut := b.String()
 		if !strings.Contains(cmdOut, sha1) {
-			log.WithField("idx", filepath.Base(idx)).Debug("git show-index: sha1 not in index, next idx file")
+			log.Log("idx", filepath.Base(idx), "event", "debug", "msg", "git show-index: sha1 not in index, next idx file")
 			continue
 		}
 		//log.Debug("git show-index:", cmdOut)
 		// we found an index with our hash inside
 		pack := strings.Replace(idx, ".idx", ".pack", 1)
-		log.Debug("unpacking:", pack)
+		log.Log("event", "debug", "msg", "unpacking:", pack)
 		packF, err := ipfsShell.Cat(pack)
 		if err != nil {
 			return errgo.Notef(err, "fetchPackedObject: pack<%s> open() failed", sha1)
@@ -152,7 +152,7 @@ func fetchPackedObject(sha1 string) error {
 		if err := unpackIdx.Run(); err != nil {
 			return errgo.Notef(err, "fetchPackedObject: pack<%s> 'git unpack-objects' failed\nOutput: %s", sha1, b.String())
 		}
-		log.Debug("git unpack-objects ...:", b.String())
+		log.Log("event", "debug", "msg", "unpack-objects", "obj", b.String())
 		return nil
 	}
 	return errgo.Newf("did not find sha1<%s> in %d index files", sha1, len(indexes))

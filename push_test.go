@@ -10,7 +10,7 @@ import (
 
 func TestPush(t *testing.T) {
 	// $ git clone ipfs://ipfs/$hash/repo.git $tmpDir
-	startURL := "ipfs://ipfs/QmYFpZJs82hLTyEpwkzVpaXGUabVVwiT8yrd6TK81XnoGB/unpackedTest"
+	startURL := "ipfs://ipfs/QmZhuM4TxuhxbamPtWHyHYCUXfkqCkgBmWREKF2kqTLbvz/unpackedTest"
 	tmpDir := cloneAndCheckout(t, startURL, expectedClone)
 
 	// $ cd repo && make $stuff
@@ -55,7 +55,7 @@ func TestPush(t *testing.T) {
 }
 
 func TestPush_twice(t *testing.T) {
-	startURL := "ipfs://ipfs/QmYFpZJs82hLTyEpwkzVpaXGUabVVwiT8yrd6TK81XnoGB/unpackedTest"
+	startURL := "ipfs://ipfs/QmZhuM4TxuhxbamPtWHyHYCUXfkqCkgBmWREKF2kqTLbvz/unpackedTest"
 	tmpDir := cloneAndCheckout(t, startURL, expectedClone)
 
 	checkFatal(t, ioutil.WriteFile(filepath.Join(tmpDir, "newFile"), []byte("Hello From Test"), 0700))

@@ -23,7 +23,6 @@ func listInfoRefs(forPush bool) error {
 			return errors.Errorf("processing info/refs: what is this: %v", hashRef)
 		}
 		ref2hash[hashRef[1]] = hashRef[0]
-		log.Log("ref", hashRef[1], "sha1", hashRef[0], "msg", "got ref")
 	}
 	if err := s.Err(); err != nil {
 		return errors.Wrapf(err, "ipfs.Cat(info/refs) scanner error")
@@ -49,7 +48,6 @@ func listHeadRef() (string, error) {
 		// use first hash in map?..
 		return "", errors.Errorf("unknown HEAD reference %q", headRef)
 	}
-	log.Log("event", "debug", "ref", headRef, "sha1", headHash, "msg", "got HEAD ref")
 	return headHash, headCat.Close()
 }
 
@@ -59,7 +57,7 @@ func listIterateRefs(forPush bool) error {
 		if err != nil {
 			return errors.Wrapf(err, "walk(%s) failed", p)
 		}
-		log.Log("event", "debug", "info", info, "msg", "iterateRefs: walked to", "p", p)
+		log.Log("event", "debug", "name", info.Name, "msg", "iterateRefs: walked to", "p", p)
 		if info.Type == 2 {
 			rc, err := ipfsShell.Cat(p)
 			if err != nil {

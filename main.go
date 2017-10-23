@@ -105,7 +105,6 @@ func main() {
 	for _, pref := range []string{"ipfs://ipfs/", "ipfs:///ipfs/"} {
 		if strings.HasPrefix(u, pref) {
 			u = "/ipfs/" + u[len(pref):]
-			log.Log("event", "debug", "msg", "prefix", "u", u)
 		}
 	}
 	p, err := path.ParsePath(u)
@@ -168,7 +167,7 @@ func speakGit(r io.Reader, w io.Writer) error {
 				fmt.Fprintf(w, "%s %s\n", hash, ref)
 			}
 			fmt.Fprintf(w, "%s HEAD\n", head)
-			fmt.Fprintln(w, "")
+			fmt.Fprintln(w)
 
 		case strings.HasPrefix(text, "fetch "):
 			for scanner.Scan() {
@@ -176,22 +175,18 @@ func speakGit(r io.Reader, w io.Writer) error {
 				if len(fetchSplit) < 2 {
 					return errors.Errorf("malformed 'fetch' command. %q", text)
 				}
-				f := []interface{}{
-					"sha1", fetchSplit[1],
-					"name", fetchSplit[2],
-				}
 				err := fetchObject(fetchSplit[1])
 				if err == nil {
-					log.Log(append(f, "msg", "fetched loose"))
-					fmt.Fprintln(w, "")
+					fmt.Fprintln(w)
 					continue
 				}
-				log.Log(append(f, "err", err, "msg", "fetchLooseObject failed, trying packed...")...)
+				// TODO isNotExist(err) would be nice here
+				//log.Log("sha1", fetchSplit[1], "name", fetchSplit[2], "err", err, "msg", "fetchLooseObject failed, trying packed...")
+
 				err = fetchPackedObject(fetchSplit[1])
 				if err != nil {
 					return errors.Wrap(err, "fetchPackedObject() failed")
 				}
-				log.Log(append(f, "msg", "fetched packed"))
 				text = scanner.Text()
 				if text == "" {
 					break

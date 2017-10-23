@@ -54,7 +54,7 @@ func push(src, dst string) error {
 			if p.Err != nil {
 				return p.Err
 			}
-			log.Log("pair", p, "msg", "added")
+			log.Log("sha1", p.Sha1, "mhash", p.MHash, "msg", "added")
 			objHash2multi[p.Sha1] = p.MHash
 			n--
 		}

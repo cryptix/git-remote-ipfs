@@ -1,0 +1,15 @@
+github.com/Sirupsen/logrus v0.8.7/go.mod h1:rmk17hk6i8ZSAJkSDa7nOxamrG+SP4P0mm+DAvExv4U=
+github.com/codegangsta/negroni v0.0.0-20150319171304-c7477ad8e330/go.mod h1:v0y3T5G7Y1UlFfyxFn/QLRU4a2EuNau2iZY63YTKWo0=
+github.com/cryptix/exp v0.0.0-20151106131911-f380a0de624d/go.mod h1:+3mt2noPsYFTh4fa/S6YnM/NsS5nZAoCofDSZi77YrQ=
+github.com/cryptix/go v0.0.0-20150809091633-7c745070561e/go.mod h1:hZFpNApUDJCk8Uh3wW0JWXA8nSJqlchDRT3iB+GdAUs=
+github.com/ipfs/go-ipfs v0.0.0-20151106120341-2c0fa4bc9933/go.mod h1:iXzbK+Wa6eePj3jQg/uY6Uoq5iOwY+GToD/bgaRadto=
+github.com/ipfs/go-ipfs-api v0.0.0-20150917180751-15ef20c520dc/go.mod h1:YWGjU+7Bdls1CpvsKsV6EsQ/KMyQqSpBru2hme/5WQg=
+github.com/jbenet/go-base58 v0.0.0-20150317085156-6237cf65f3a6/go.mod h1:r/8JmuR0qjuCiEhAolkfvdZgmPiHTnJaG0UXCSeR1Zo=
+github.com/jbenet/go-datastore v0.0.0-20150529180342-245a981af375/go.mod h1:uU2cxw+24LsXE6+Z+Dk5HBJ03DJHbKcJ0QyJpItYlx0=
+github.com/jbenet/go-multihash v0.0.0-20150412113922-e8d2374934f1/go.mod h1:ZbObQa4pU7yymEC+FkZIQ2FTn96ilATpnEOySawQNZI=
+github.com/jbenet/goprocess v0.0.0-20150909030556-64a8220330a4/go.mod h1:Ly/wlsjFq/qrU3Rar62tu1gASgGw6chQbSh/XgIIXCY=
+github.com/satori/go.uuid v0.0.0-20150829024907-08f0718b61e9/go.mod h1:dA0hQrYB0VpLJoorglMZABFdXlWrHn1NEOzdhQKdks0=
+github.com/whyrusleeping/go-multipart-files v0.0.0-20150904024949-3be93d9f6b61/go.mod h1:M8fg8TPY51E0RdLJD+RgA6ERzzecdUnIBpjH5WMHNZE=
+github.com/whyrusleeping/tar-utils v0.0.0-20150809221248-e8a5890cfc9d/go.mod h1:xxcJeBb7SIUl/Wzkz1eVKJE/CB34YNrqX2TQI6jY9zs=
+golang.org/x/crypto v0.0.0-20150830180642-aedad9a179ec/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=
+gopkg.in/errgo.v1 v1.0.0-20150707183445-150989630885/go.mod h1:u0ALmqvLRxLI95fkdCEWrE6mhWYZW1aMOJHp5YXLHTg=

@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/ipfs/go-cid"
-	mh "github.com/jbenet/go-multihash"
+	mh "github.com/multiformats/go-multihash"
 )
 
 // ErrBadPath is returned when a given path is incorrectly formatted
@@ -89,7 +89,7 @@ func ParseCidToPath(txt string) (Path, error) {
 		return "", err
 	}
 
-	return FromCid(c), nil
+	return FromCid(&c), nil
 }
 
 func (p *Path) IsValid() error {

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ipfs/go-ipfs-shell"
+	shell "github.com/ipfs/go-ipfs-api"
 	"github.com/pkg/errors"
 )
 

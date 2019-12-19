@@ -110,9 +110,9 @@ func gitCatData(sha1, kind string) (io.Reader, error) {
 		out, readErr := ioutil.ReadAll(r)
 		if readErr != nil {
 			readErr = errors.Wrap(readErr, "readAll failed")
-			return nil, errors.Wrapf(err, "failed during: %s", readErr)
+			return nil, errors.Wrapf(err, "catData(%s) failed during: %s", sha1, readErr)
 		}
-		return nil, errors.Wrapf(err, "catData(%s) failed: %q", out)
+		return nil, errors.Wrapf(err, "catData(%s) failed: %q", sha1, out)
 	}
 	// todo wait for cmd?!
 	return r, nil

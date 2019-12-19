@@ -3,12 +3,8 @@ sudo: required
 language: go
 
 go:
-  - 1.9
-  - tip
-
-matrix:
-  allow_failures:
-    - go: tip
+  - 1.12
+  - 1.13
 
 services:
   - docker

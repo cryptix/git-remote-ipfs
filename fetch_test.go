@@ -9,6 +9,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -56,6 +58,26 @@ func TestClone_unpacked(t *testing.T) {
 	rmDir(t, cloneAndCheckout(t, "ipfs://ipfs/QmZhuM4TxuhxbamPtWHyHYCUXfkqCkgBmWREKF2kqTLbvz/unpackedTest", expectedClone))
 }
 
+func TestClone_ipnsPublished(t *testing.T) {
+	bareHash := "Qmf4ZzbmnqyKEjuBH3hNpQWu1fMUZWdy91DwAsUXXc4Kw1" // == /ipfs/QmYFpZJs82hLTyEpwkzVpaXGUabVVwiT8yrd6TK81XnoGB/unpackedTest
+	id, err := ipfsShell.ID()
+	checkFatal(t, err)
+	//err = ipfsShell.Publish(id.ID, bareHash)
+	err = ipfsShell.Publish("", bareHash)
+	checkFatal(t, err)
+	tmpDir := cloneAndCheckout(t, "ipfs://ipns/"+id.ID, expectedClone)
+	// check origin url
+	cmd := exec.Command(gitPath, "config", "--get", "remote.origin.url")
+	cmd.Dir = tmpDir
+	out, err := cmd.CombinedOutput()
+	checkFatal(t, err)
+	origin := strings.TrimSpace(string(out))
+	if origin != "ipfs://ipfs/"+bareHash {
+		t.Fatalf("remote url wasn't set correctly. is:%q", origin)
+	}
+	rmDir(t, tmpDir)
+}
+
 // helpers
 
 func cloneAndCheckout(t *testing.T, repo string, expected map[string]string) (tmpDir string) {
@@ -74,7 +96,8 @@ func cloneAndCheckout(t *testing.T, repo string, expected map[string]string) (tm
 
 func checkFatal(t *testing.T, err error) {
 	if err != nil {
-		t.Fatal(err)
+		_, file, line, _ := runtime.Caller(1)
+		t.Fatalf("error from %s:%d.\n%s", file, line, err)
 	}
 }
 
